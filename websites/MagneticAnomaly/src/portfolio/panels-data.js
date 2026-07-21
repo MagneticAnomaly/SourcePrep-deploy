@@ -55,9 +55,8 @@ export const panels = [
       type: 'hybrid-desktop-phones',
       desktop: {
         title: 'applivation-vault',
-        label: 'VAULT · MAC',
-        emoji: '🔒',
-        labelClass: 'font-mono text-[11px] text-[#6EA8FE] tracking-widest',
+        src: '/images/Applivation-desktop-vault.png',
+        alt: 'Applivation Mac vault with stored career information',
       },
       phones: [
         { src: '/images/Applivation-phone-ats.png', alt: 'Applivation autofilling an ATS job application' },
