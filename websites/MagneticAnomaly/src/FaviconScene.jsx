@@ -14,23 +14,26 @@ function Monogram() {
     }
   });
 
-  // Once the text mesh exists, make its material semi-transparent so rainbow
-  // particles behind the letters tint the white MA. Without this the text is
-  // opaque and completely covers the particles.
+  // Render the text FIRST and make it opaque so additive particles drawn on
+  // top brighten/tint the white letters wherever they overlap.
   useEffect(() => {
-    const material = textRef.current?.material;
-    if (material) {
-      material.transparent = true;
-      material.opacity = 0.45;
-      material.depthWrite = false;
-      material.blending = THREE.NormalBlending;
-      material.needsUpdate = true;
+    const mesh = textRef.current;
+    if (mesh) {
+      mesh.renderOrder = -10;
+      const material = mesh.material;
+      if (material) {
+        material.transparent = false;
+        material.opacity = 1.0;
+        material.depthWrite = true;
+        material.blending = THREE.NormalBlending;
+        material.needsUpdate = true;
+      }
     }
   }, []);
 
   const config = useMemo(() => ({
     font: '/fonts/SpaceGrotesk-Bold.ttf',
-    fontSize: 0.78,
+    fontSize: 0.85,
     letterSpacing: -0.02,
     lineHeight: 1,
     color: '#F8F9FA',
