@@ -57,6 +57,7 @@ export const panels = [
         title: 'applivation-vault',
         src: '/images/Applivation-desktop-vault.png',
         alt: 'Applivation Mac vault with stored career information',
+        hideChrome: true,
       },
       phones: [
         { src: '/images/Applivation-phone-ats.png', alt: 'Applivation autofilling an ATS job application' },

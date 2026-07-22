@@ -18,17 +18,19 @@
 // a single static screen for the hybrid's desktop state, or a placeholder) as
 // `children`. `className` merges onto the frame div (width + positioning).
 
-export default function DesktopFrame({ title, children, className = '' }) {
+export default function DesktopFrame({ title, children, className = '', hideChrome = false }) {
   return (
     <div className={`aspect-[1078/799] bg-void border border-white/10 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col ${className}`}>
-      <div className="h-6 border-b border-white/10 bg-white/5 flex items-center px-2 space-x-1.5 z-10 relative">
-        <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-        <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-        <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-        <span className="ml-4 font-mono text-[10px] text-white/30 tracking-widest">{title}</span>
-      </div>
+      {!hideChrome && (
+        <div className="h-6 border-b border-white/10 bg-white/5 flex items-center px-2 space-x-1.5 z-10 relative">
+          <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+          <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+          <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+          <span className="ml-4 font-mono text-[10px] text-white/30 tracking-widest">{title}</span>
+        </div>
+      )}
       {/* Content area — variant supplies the inner / screen / placeholder. */}
-      <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-void to-white/5">
+      <div className={`relative overflow-hidden bg-gradient-to-br from-void to-white/5 ${hideChrome ? 'h-full' : 'flex-1'}`}>
         {children}
       </div>
     </div>

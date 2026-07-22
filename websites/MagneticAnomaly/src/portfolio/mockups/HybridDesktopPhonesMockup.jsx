@@ -127,7 +127,7 @@ export default function HybridDesktopPhonesMockup({ innerClass, desktop, phones 
               at the same size as SourcePrep's desktop. No lg:translate-x-6
               (this desktop sits centered in its state cell). */}
           <div className="md:h-1/2 w-full flex items-center justify-center">
-            <DesktopFrame title={desktop.title} className="w-[110%]">
+            <DesktopFrame title={desktop.title} className="w-[110%]" hideChrome={desktop.hideChrome}>
               {desktopContent(desktop)}
             </DesktopFrame>
           </div>
