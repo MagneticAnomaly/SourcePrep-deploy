@@ -14,7 +14,12 @@ Usage:
 The runner is RESUMABLE — every completed iteration is journaled to
 `<output>.manifest.json` immediately. Re-running with `--resume <manifest>`
 skips iterations already in the manifest, so a crash / interrupt does
-not lose prior work (PROPOSAL §7 RU8).
+not lose prior work (PROPOSAL §7 RU8). Add `--retry-non-pass` to also
+re-run recorded fail/error/skipped iters (§9.3 #6).
+
+Each iter's child stdout streams to `<out_root>/capture/<session>_<op>_
+iter<N>.log` (§9.3 #5) — `tail -f` it for live progress during long
+unattended runs.
 
 A daemon health probe runs before every iteration; if the daemon is
 unreachable, the iter is recorded as `skipped` and the runner moves on
@@ -419,12 +424,25 @@ def is_completed(manifest: SessionManifest, op_id: str, iter_num: int) -> bool:
     """True iff the (op_id, iter_num) pair already has a recorded result.
 
     Any terminal status — pass, fail, error, skipped — counts as completed.
-    Re-running a failed/errored iter requires manually removing it from
-    the manifest. This is intentional: resume-after-crash should pick up
-    where we left off, not silently redo work the caller might be
-    inspecting.
+    Re-running a failed/errored iter requires either `--retry-non-pass`
+    (§9.3 #6) or manually removing it from the manifest. The default is
+    intentional: resume-after-crash should pick up where we left off, not
+    silently redo work the caller might be inspecting.
     """
     return any(r.op_id == op_id and r.iter_num == iter_num for r in manifest.completed)
+
+
+def _apply_retry_non_pass(manifest: SessionManifest) -> int:
+    """§9.3 #6 — drop every non-pass IterResult so those iters re-run.
+
+    In-memory only: the caller must NOT persist immediately. An aborted
+    resume (daemon down at the initial probe) should leave the on-disk
+    history untouched; the first new iter result persists the pruned
+    manifest as a side effect. Returns the number of results dropped.
+    """
+    before = len(manifest.completed)
+    manifest.completed = [r for r in manifest.completed if r.status == "pass"]
+    return before - len(manifest.completed)
 
 
 # ── playwright_smoke output parsing ───────────────────────────────
@@ -855,6 +873,7 @@ def run_one_iter(
     dashboard_url: str,
     out_root: Path,
     per_iter_timeout: int,
+    capture_path: Optional[Path] = None,
 ) -> tuple[Optional[Path], int, str]:
     """Invoke playwright_smoke as a subprocess for ONE op iteration.
 
@@ -862,6 +881,11 @@ def run_one_iter(
     `run_<ts>` directory the subprocess created. Returns
     `(run_dir, returncode, stderr)`. `run_dir` is None when the
     subprocess timed out or crashed before creating its output dir.
+
+    §9.3 #5 — when `capture_path` is set, the child's stdout streams to
+    that file (RAM-flat, tail-able by an unattended operator or an
+    orchestrating agent); when None, stdout goes to DEVNULL (the Lens
+    D #3 behavior).
     """
     # §9.3 #23 B2-FLOOR: per_iter_timeout must leave at least 30 s of
     # headroom below it for the child's snapshot/teardown. Anything below
@@ -896,63 +920,74 @@ def run_one_iter(
     print(f"  $ {' '.join(cmd)}", flush=True)
 
     pre = set(out_root.glob("run_*")) if out_root.is_dir() else set()
-    # Lens D #3: capture_output=True buffers stdout + stderr in RAM until
-    # exit. playwright_smoke defaults --verbose=True and prints ~5
-    # events/poll; a 15-minute iter ≈ tens of MB held by the parent we
-    # never read. Drop stdout to /dev/null (we only ever use the stderr
-    # tail) and keep stderr piped at a bounded tail length.
-    #
+    # Lens D #3 / §9.3 #5: capture_output=True buffers stdout + stderr in
+    # RAM until exit. playwright_smoke defaults --verbose=True and prints
+    # ~5 events/poll; a 15-minute iter ≈ tens of MB held by the parent we
+    # never read. Stream stdout to the caller's capture file when given
+    # (RAM-flat AND tail-able), else /dev/null. stderr stays piped at a
+    # bounded tail length.
+    capture_handle = None
+    if capture_path is not None:
+        capture_path.parent.mkdir(parents=True, exist_ok=True)
+        capture_handle = open(capture_path, "w")
+        print(f"  capture → {capture_path}", flush=True)
+    stdout_target = capture_handle if capture_handle is not None else subprocess.DEVNULL
+
     # §9.3 #22 B1: start_new_session=True puts the child into its own
     # process group so killpg() on TimeoutExpired reaches the grandchild
     # chromium. subprocess.run's timeout path only proc.kill()s the
     # immediate child — without the group kill, the headless browser
     # orphans and survives until reboot.
     try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-            start_new_session=True,
-        )
-    except FileNotFoundError as e:
-        return None, 127, f"subprocess spawn failed: {e}"
-
-    # getpgid right after Popen — the kernel guarantees the pgid is valid
-    # for as long as proc has not been reaped. We track it in
-    # _PENDING_CHILD_PGIDS so the atexit hook can kill it if we die.
-    try:
-        pgid = os.getpgid(proc.pid)
-    except ProcessLookupError:
-        # Child exited between Popen and getpgid (rare; instant crash).
-        # Fall back to the immediate-child pid for kill purposes.
-        pgid = proc.pid
-    _PENDING_CHILD_PGIDS.add(pgid)
-
-    try:
         try:
-            _, stderr_str = proc.communicate(timeout=per_iter_timeout)
-            rc = proc.returncode
-            stderr_tail = (stderr_str or "")[-400:]
-        except subprocess.TimeoutExpired:
-            # SIGKILL the whole session (child + chromium grandchildren),
-            # then drain stderr with a short follow-up budget so the
-            # caller can still see what the subprocess was last doing.
-            _kill_pgid_safely(pgid)
+            proc = subprocess.Popen(
+                cmd,
+                stdout=stdout_target,
+                stderr=subprocess.PIPE,
+                text=True,
+                start_new_session=True,
+            )
+        except FileNotFoundError as e:
+            return None, 127, f"subprocess spawn failed: {e}"
+
+        # getpgid right after Popen — the kernel guarantees the pgid is valid
+        # for as long as proc has not been reaped. We track it in
+        # _PENDING_CHILD_PGIDS so the atexit hook can kill it if we die.
+        try:
+            pgid = os.getpgid(proc.pid)
+        except ProcessLookupError:
+            # Child exited between Popen and getpgid (rare; instant crash).
+            # Fall back to the immediate-child pid for kill purposes.
+            pgid = proc.pid
+        _PENDING_CHILD_PGIDS.add(pgid)
+
+        try:
             try:
-                _, stderr_str = proc.communicate(timeout=5)
-                partial_stderr = stderr_str or ""
+                _, stderr_str = proc.communicate(timeout=per_iter_timeout)
+                rc = proc.returncode
+                stderr_tail = (stderr_str or "")[-400:]
             except subprocess.TimeoutExpired:
-                # communicate timed out even after SIGKILL ─ extremely rare
-                # (would require the kernel to block reaping). Try the
-                # group-kill once more (idempotent); proc.kill() would
-                # only re-SIGKILL the already-dead immediate child and
-                # leave grandchildren alive.
+                # SIGKILL the whole session (child + chromium grandchildren),
+                # then drain stderr with a short follow-up budget so the
+                # caller can still see what the subprocess was last doing.
                 _kill_pgid_safely(pgid)
-                partial_stderr = ""
-            return None, 124, f"TIMEOUT after {per_iter_timeout}s; stderr tail: {partial_stderr[-200:]}"
+                try:
+                    _, stderr_str = proc.communicate(timeout=5)
+                    partial_stderr = stderr_str or ""
+                except subprocess.TimeoutExpired:
+                    # communicate timed out even after SIGKILL ─ extremely rare
+                    # (would require the kernel to block reaping). Try the
+                    # group-kill once more (idempotent); proc.kill() would
+                    # only re-SIGKILL the already-dead immediate child and
+                    # leave grandchildren alive.
+                    _kill_pgid_safely(pgid)
+                    partial_stderr = ""
+                return None, 124, f"TIMEOUT after {per_iter_timeout}s; stderr tail: {partial_stderr[-200:]}"
+        finally:
+            _PENDING_CHILD_PGIDS.discard(pgid)
     finally:
-        _PENDING_CHILD_PGIDS.discard(pgid)
+        if capture_handle is not None:
+            capture_handle.close()
 
     post = set(out_root.glob("run_*"))
     new_dirs = sorted(post - pre, key=lambda p: p.stat().st_mtime)
@@ -1026,12 +1061,28 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--dashboard-url", default="http://localhost:5174")
     ap.add_argument("--per-iter-timeout", type=_per_iter_timeout_arg, default=15 * 60,
                     help="Wall-clock budget per iter, seconds (default: 900 = 15m, "
-                         "minimum: 90 — see §9.3 #23).")
+                         "minimum: 90 — see §9.3 #23). Single knob for big repos: the "
+                         "child's watch budget follows as N-30 and may RAISE the "
+                         "smoke's built-in 60m rebuild budget (HomeColab-class repos "
+                         "need 2-3h here).")
     ap.add_argument("--inter-iter-pause", type=int, default=10,
                     help="Pause between iterations, seconds (default: 10).")
     ap.add_argument("--resume",
                     help="Path to a previous session manifest JSON to resume.")
+    ap.add_argument("--retry-non-pass", action="store_true",
+                    help="§9.3 #6 — with --resume, drop recorded fail/error/skipped "
+                         "iterations from the manifest so they re-run. Default resume "
+                         "semantics (skip everything recorded) are unchanged without "
+                         "this flag.")
     args = ap.parse_args(argv)
+
+    if args.retry_non_pass and not args.resume:
+        print(
+            "ERROR: --retry-non-pass requires --resume (a fresh session has "
+            "nothing to retry).",
+            file=sys.stderr,
+        )
+        return 2
 
     req_ops = [s.strip() for s in args.operations.split(",") if s.strip()]
     unknown_ops = [op for op in req_ops if op not in OP_BY_ID]
@@ -1057,6 +1108,14 @@ def main(argv: list[str]) -> int:
             f"{len(manifest.completed)} iteration(s) already recorded.",
             flush=True,
         )
+        if args.retry_non_pass:
+            dropped = _apply_retry_non_pass(manifest)
+            print(
+                f"--retry-non-pass: dropped {dropped} non-pass iteration(s); "
+                "they will re-run. (On-disk manifest untouched until the "
+                "first new result lands.)",
+                flush=True,
+            )
     else:
         manifest = SessionManifest(
             session_id=_new_session_id(),
@@ -1113,6 +1172,8 @@ def main(argv: list[str]) -> int:
                 persist_manifest(manifest, manifest_path)
                 continue
 
+            # §9.3 #5 — per-iter capture file so an unattended operator (or
+            # an orchestrating agent) can tail live progress mid-iter.
             run_dir, rc, stderr_tail = run_one_iter(
                 op,
                 args.project_id,
@@ -1120,6 +1181,8 @@ def main(argv: list[str]) -> int:
                 args.dashboard_url,
                 out_root,
                 args.per_iter_timeout,
+                capture_path=out_root / "capture"
+                / f"{manifest.session_id}_{op.id}_iter{iter_num}.log",
             )
 
             if run_dir is None:

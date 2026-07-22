@@ -2811,3 +2811,294 @@ class TestSummariseEventKindMdCellIntegration:
         assert "|" not in cell.replace("\\|", "")
         # Within the notes cap (md_cell does not change length materially).
         assert len(cell) <= _NOTES_MAX_LEN + 10  # +10 slack for `\|` escapes
+
+
+class TestRetryNonPass:
+    """§9.3 #6 — `--retry-non-pass` resume flag.
+
+    The most common long-session resume case is "daemon died on iter N,
+    restarted daemon, re-run the failures" — pre-fix the operator had to
+    hand-edit the manifest JSON because `is_completed` treats every
+    terminal status (pass/fail/error/skipped) as done. The flag drops
+    non-pass results from the loaded manifest so those iters re-run,
+    while plain `--resume` keeps its skip-everything-recorded semantics.
+    """
+
+    def _manifest_with(self, statuses: list[str]) -> "SessionManifest":
+        m = SessionManifest(
+            session_id="2026-07-22T000000Z",
+            project_id="p",
+            iterations=len(statuses),
+            operations=["Op-1"],
+            api_url="http://127.0.0.1:1",
+            dashboard_url="http://127.0.0.1:1",
+            out_root="out",
+        )
+        for i, st in enumerate(statuses, start=1):
+            m.completed.append(
+                IterResult(op_id="Op-1", iter_num=i, run_dir="", status=st)
+            )
+        return m
+
+    def test_apply_retry_non_pass_drops_non_pass_keeps_pass(self):
+        import tools.phase145_uat.run_session as rs
+
+        m = self._manifest_with(["pass", "fail", "error", "skipped"])
+        dropped = rs._apply_retry_non_pass(m)
+        assert dropped == 3
+        assert [r.status for r in m.completed] == ["pass"]
+
+    def test_apply_retry_non_pass_noop_when_all_pass(self):
+        import tools.phase145_uat.run_session as rs
+
+        m = self._manifest_with(["pass", "pass"])
+        dropped = rs._apply_retry_non_pass(m)
+        assert dropped == 0
+        assert len(m.completed) == 2
+
+    def test_retry_non_pass_without_resume_is_cli_error(self, capsys, tmp_path):
+        """Passing the flag without --resume is a misconfiguration (there
+        is nothing to retry in a fresh session). Loud rc=2, not a silent
+        no-op — matching the harness's WARN→fatal philosophy (Lens C #6).
+        """
+        import tools.phase145_uat.run_session as rs
+
+        rc = rs.main([
+            "--project-id", "x",
+            "--operations", "Op-1",
+            "--output", str(tmp_path / "s.md"),
+            "--retry-non-pass",
+        ])
+        assert rc == 2
+        captured = capsys.readouterr()
+        assert "--retry-non-pass" in captured.err
+        assert "--resume" in captured.err
+
+    def test_resume_with_retry_flag_drops_in_memory_but_preserves_disk_on_abort(
+        self, capsys, tmp_path
+    ):
+        """The drop happens in memory after manifest load; the on-disk
+        manifest is NOT rewritten until the first new iter result lands.
+        An aborted resume (daemon down → rc 3) must not have destroyed
+        the recorded history.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        m = self._manifest_with(["pass", "fail"])
+        p = tmp_path / "s.md.manifest.json"
+        p.write_text(json.dumps(m.to_json()))
+
+        rc = rs.main([
+            "--project-id", "p",
+            "--operations", "Op-1",
+            "--output", str(tmp_path / "s.md"),
+            "--resume", str(p),
+            "--retry-non-pass",
+            "--api-url", "http://127.0.0.1:1",
+        ])
+        assert rc == 3  # daemon unreachable — aborted before any iter ran
+        out = capsys.readouterr().out
+        assert "dropped 1 non-pass" in out
+        on_disk = json.loads(p.read_text())
+        assert len(on_disk["completed"]) == 2, (
+            "aborted resume must not rewrite the manifest — history would "
+            "be silently lost with no work done in exchange"
+        )
+
+
+class TestCaptureToFile:
+    """§9.3 #5 — stream child stdout to a capture file.
+
+    Pre-fix, run_one_iter sent child stdout to DEVNULL (Lens D #3 OOM
+    guard) which left an unattended operator with ZERO progress signal
+    during a 15-minute iter. Streaming to a file keeps memory flat while
+    making `tail -f` (or an orchestrating agent's Read) work.
+    """
+
+    def _fake_popen_capturing(self, captured: dict):
+        class FakeProc:
+            pid = 55555
+            returncode = 0
+
+            def communicate(self, timeout=None):  # noqa: ARG002
+                return ("", "")
+
+        def fake(cmd, **kwargs):
+            captured["cmd"] = cmd
+            captured["kwargs"] = kwargs
+            return FakeProc()
+
+        return fake
+
+    def test_capture_path_streams_stdout_to_file(self, monkeypatch, tmp_path):
+        import tools.phase145_uat.run_session as rs
+
+        captured: dict = {}
+        monkeypatch.setattr(rs.subprocess, "Popen", self._fake_popen_capturing(captured))
+        monkeypatch.setattr(rs.os, "getpgid", lambda pid: pid)
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+        cap = tmp_path / "capture" / "sess_Op-1_iter1.log"
+
+        rs.run_one_iter(
+            OP_BY_ID["Op-1"],
+            project_id="p",
+            api_url="http://x",
+            dashboard_url="http://y",
+            out_root=out_root,
+            per_iter_timeout=90,
+            capture_path=cap,
+        )
+
+        stdout = captured["kwargs"]["stdout"]
+        assert stdout is not subprocess.DEVNULL
+        assert Path(stdout.name) == cap, (
+            "child stdout must stream to the caller-provided capture file"
+        )
+        assert stdout.closed, "capture handle must be closed after the child exits"
+        assert cap.is_file(), "parent must create the capture dir + file"
+
+    def test_default_stdout_is_devnull(self, monkeypatch, tmp_path):
+        """Without capture_path the Lens D #3 DEVNULL behavior is
+        preserved (RAM-flat for callers that don't want capture)."""
+        import tools.phase145_uat.run_session as rs
+
+        captured: dict = {}
+        monkeypatch.setattr(rs.subprocess, "Popen", self._fake_popen_capturing(captured))
+        monkeypatch.setattr(rs.os, "getpgid", lambda pid: pid)
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+
+        rs.run_one_iter(
+            OP_BY_ID["Op-1"],
+            project_id="p",
+            api_url="http://x",
+            dashboard_url="http://y",
+            out_root=out_root,
+            per_iter_timeout=90,
+        )
+
+        assert captured["kwargs"]["stdout"] is subprocess.DEVNULL
+
+    def test_capture_handle_closed_on_timeout(self, monkeypatch, tmp_path):
+        """The TimeoutExpired path (SIGKILL + drain) must also close the
+        capture handle — a leaked fd per timed-out iter accumulates over
+        an hours-long session."""
+        import tools.phase145_uat.run_session as rs
+
+        captured: dict = {}
+
+        class FakeProc:
+            pid = 55556
+            returncode = None
+            _calls = 0
+
+            def communicate(self, timeout=None):  # noqa: ARG002
+                FakeProc._calls += 1
+                if FakeProc._calls == 1:
+                    raise subprocess.TimeoutExpired(cmd="x", timeout=90)
+                return ("", "")
+
+        def fake(cmd, **kwargs):
+            captured["kwargs"] = kwargs
+            return FakeProc()
+
+        monkeypatch.setattr(rs.subprocess, "Popen", fake)
+        monkeypatch.setattr(rs.os, "getpgid", lambda pid: pid)
+        monkeypatch.setattr(rs, "_kill_pgid_safely", lambda pgid: None)
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+        cap = tmp_path / "cap.log"
+
+        run_dir, rc, _ = rs.run_one_iter(
+            OP_BY_ID["Op-1"],
+            project_id="p",
+            api_url="http://x",
+            dashboard_url="http://y",
+            out_root=out_root,
+            per_iter_timeout=90,
+            capture_path=cap,
+        )
+        assert rc == 124
+        assert captured["kwargs"]["stdout"].closed
+
+    def test_main_threads_capture_path(self):
+        """Structural pin — main() must pass capture_path to run_one_iter;
+        a refactor that drops the pass-through silently reverts the
+        operator to zero progress signal."""
+        import inspect
+
+        import tools.phase145_uat.run_session as rs
+
+        src = inspect.getsource(rs.main)
+        assert "capture_path=" in src
+
+
+class TestWatchBudgetRaise:
+    """Big-repo enabler — the --max-watch-secs cap becomes the
+    authoritative watch budget for build/rebuild watches (it may RAISE
+    the built-in 60m/30m budgets, not only clamp them), while short
+    scoped-reset watches (60s) remain clamp-only.
+
+    Pre-fix, `_capped_max_seconds` was min()-only, so a HomeColab-class
+    rebuild (45-90 min) timed out at the built-in 60m regardless of
+    --per-iter-timeout. Single-knob contract after this change:
+    run_session's --per-iter-timeout N flows to the child as
+    --max-watch-secs (N-30), which IS the watch budget for heavy modes.
+    """
+
+    def test_effective_no_cap_identity(self, monkeypatch):
+        import tools.playwright_smoke as ps
+
+        monkeypatch.setattr(ps, "_MAX_WATCH_SECS_CAP", None)
+        assert ps._effective_watch_budget(3600, raisable=True) == 3600
+        assert ps._effective_watch_budget(60, raisable=False) == 60
+
+    def test_effective_raisable_uses_cap_when_higher(self, monkeypatch):
+        import tools.playwright_smoke as ps
+
+        monkeypatch.setattr(ps, "_MAX_WATCH_SECS_CAP", 7170)
+        assert ps._effective_watch_budget(3600, raisable=True) == 7170, (
+            "a cap ABOVE the built-in budget must raise it — big real repos "
+            "(HomeColab 45-90min rebuilds) need watches beyond the 60m default"
+        )
+
+    def test_effective_raisable_clamps_when_cap_lower(self, monkeypatch):
+        import tools.playwright_smoke as ps
+
+        monkeypatch.setattr(ps, "_MAX_WATCH_SECS_CAP", 600)
+        assert ps._effective_watch_budget(3600, raisable=True) == 600, (
+            "B2 SIGKILL-horizon clamping must survive the raise change"
+        )
+
+    def test_effective_non_raisable_never_raises(self, monkeypatch):
+        import tools.playwright_smoke as ps
+
+        monkeypatch.setattr(ps, "_MAX_WATCH_SECS_CAP", 7170)
+        assert ps._effective_watch_budget(60, raisable=False) == 60, (
+            "scoped-reset watches keep their deliberate 60s budget even "
+            "under a large cap"
+        )
+        monkeypatch.setattr(ps, "_MAX_WATCH_SECS_CAP", 30)
+        assert ps._effective_watch_budget(60, raisable=False) == 30
+
+    def test_watch_until_idle_uses_effective_budget(self):
+        import inspect
+
+        import tools.playwright_smoke as ps
+
+        src = inspect.getsource(ps.watch_until_idle)
+        assert "_effective_watch_budget(" in src
+        assert "budget_raisable" in src
+
+    def test_scoped_reset_watch_not_raisable(self):
+        import inspect
+
+        import tools.playwright_smoke as ps
+
+        src = inspect.getsource(ps.run_reset_scoped_ui)
+        assert "budget_raisable=False" in src, (
+            "run_reset_scoped_ui's 60s watch must opt out of budget "
+            "raising — a reset that hangs for the full raised budget "
+            "would burn an hours-long session on a 60s operation"
+        )

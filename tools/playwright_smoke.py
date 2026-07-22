@@ -152,9 +152,30 @@ _MAX_WATCH_SECS_CAP: Optional[int] = None
 
 
 def _capped_max_seconds(requested: int) -> int:
-    """Apply the global watch budget cap, if set."""
+    """Apply the global watch budget cap, if set. Clamp-only."""
     if _MAX_WATCH_SECS_CAP is None:
         return requested
+    return min(requested, _MAX_WATCH_SECS_CAP)
+
+
+def _effective_watch_budget(requested: int, *, raisable: bool) -> int:
+    """Resolve a watch budget against the global --max-watch-secs cap.
+
+    raisable=True (build/rebuild/incremental watches): the cap, when
+    set, IS the budget — it may RAISE the built-in 60m/30m defaults
+    (big real repos like HomeColab take 45-90 min per rebuild, past the
+    60m default) as well as clamp them below the parent's SIGKILL
+    horizon (§9.3 #22 B2). Single-knob contract with run_session:
+    --per-iter-timeout N flows here as N-30 and is the watch budget.
+
+    raisable=False (scoped-reset watches): clamp-only — a deliberately
+    short budget (60s) must survive a large cap, otherwise a hung reset
+    burns hours of an unattended session on a one-minute operation.
+    """
+    if _MAX_WATCH_SECS_CAP is None:
+        return requested
+    if raisable:
+        return _MAX_WATCH_SECS_CAP
     return min(requested, _MAX_WATCH_SECS_CAP)
 
 
@@ -861,6 +882,7 @@ def watch_until_idle(
     refresh_at_secs: Optional[float] = None,
     update_at_secs: Optional[float] = None,
     project_name: Optional[str] = None,
+    budget_raisable: bool = True,
 ) -> bool:
     """Poll + scrape + diff until no pipeline group is running (or timeout).
 
@@ -902,10 +924,12 @@ def watch_until_idle(
     collapsed) cannot spuriously clear the 2-tick persistence buffer for
     a real bug that was mid-detection at refresh time.
     """
-    # §9.3 #22 B2: clamp the per-mode budget by the global cap so the
-    # child can always reach `ctx.snap(page, "timeout")` before the
-    # parent (run_session.py) sends SIGKILL.
-    max_seconds = _capped_max_seconds(max_seconds)
+    # §9.3 #22 B2: resolve the per-mode budget against the global cap so
+    # the child can always reach `ctx.snap(page, "timeout")` before the
+    # parent (run_session.py) sends SIGKILL. For heavy watches the cap
+    # may also RAISE the built-in budget (big-repo enabler); scoped-reset
+    # watches pass budget_raisable=False and only ever clamp.
+    max_seconds = _effective_watch_budget(max_seconds, raisable=budget_raisable)
 
     # §9.3 #22 B3: monotonic clock for elapsed math; wall clock only for
     # Event timestamps. Laptop sleep (lid closed) or NTP step makes
@@ -1591,7 +1615,8 @@ def run_reset_scoped_ui(
 
     # After reset there's nothing running; watch_until_idle returns ok via
     # the no_activity_observed branch within ~grace*2 seconds.
-    return watch_until_idle(api, page, pid, ctx, max_seconds=60, startup_grace_seconds=10)
+    return watch_until_idle(api, page, pid, ctx, max_seconds=60, startup_grace_seconds=10,
+                            budget_raisable=False)
 
 
 # ── Top-level ─────────────────────────────────────────────────────
@@ -1659,11 +1684,11 @@ def main(argv: list[str]) -> int:
     # state. Setting this to (per_iter_timeout - 30) lets the child end
     # cleanly with a screenshot and 30s headroom for stderr flush.
     ap.add_argument("--max-watch-secs", type=int, default=None,
-                    help="Cap watch_until_idle wall-clock budget per mode (seconds). "
+                    help="Watch budget for build/rebuild/incremental watches (seconds). "
                          "Default unset = each mode keeps its built-in budget (rebuild=60m, "
-                         "incremental=30m, scoped-reset=60s). Caller-set values clamp the "
-                         "per-mode budget downward so it cannot exceed the surrounding "
-                         "subprocess timeout.")
+                         "incremental=30m, scoped-reset=60s). When set, it REPLACES the "
+                         "heavy-mode budgets (raise for big repos, clamp below the parent "
+                         "subprocess timeout); scoped-reset watches only ever clamp.")
     args = ap.parse_args(argv)
 
     modes = [m.strip() for m in args.modes.split(",") if m.strip()]
