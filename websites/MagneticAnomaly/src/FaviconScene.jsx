@@ -34,32 +34,22 @@ function Monogram() {
     });
   }, []);
 
-  const mConfig = useMemo(() => ({
+  const config = useMemo(() => ({
     font: '/fonts/SpaceGrotesk-Bold.ttf',
     fontSize: 0.735,
     letterSpacing: -0.02,
     lineHeight: 1,
     color: '#F8F9FA',
-    anchorX: 'right',
-    anchorY: 'middle',
-  }), []);
-
-  const aConfig = useMemo(() => ({
-    font: '/fonts/SpaceGrotesk-Bold.ttf',
-    fontSize: 0.735,
-    letterSpacing: -0.02,
-    lineHeight: 1,
-    color: '#F8F9FA',
-    anchorX: 'left',
+    anchorX: 'center',
     anchorY: 'middle',
   }), []);
 
   return (
     <group ref={groupRef} position={[0, 0, 0.75]}>
-      <Text {...mConfig} ref={mRef} position={[-0.01, 0, 0]}>
+      <Text {...config} ref={mRef} position={[-0.018, 0, 0]}>
         M
       </Text>
-      <Text {...aConfig} ref={aRef} position={[0.015, 0, 0]}>
+      <Text {...config} ref={aRef} position={[0.018, 0, 0]}>
         A
       </Text>
     </group>
