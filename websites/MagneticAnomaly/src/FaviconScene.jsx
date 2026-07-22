@@ -1,7 +1,41 @@
-import React, { Suspense, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Sphere, useTexture } from '@react-three/drei';
+import React, { Suspense, useRef, useMemo } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Sphere, useTexture, Text } from '@react-three/drei';
 import { FaviconParticles } from './FaviconParticles';
+import * as THREE from 'three';
+
+function Monogram() {
+  const groupRef = useRef();
+  const materialRef = useRef();
+
+  useFrame((state) => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.15) * 0.05;
+    }
+  });
+
+  const config = useMemo(() => ({
+    font: '/fonts/SpaceGrotesk-Bold.ttf',
+    fontSize: 0.42,
+    letterSpacing: -0.03,
+    lineHeight: 1,
+    color: '#F8F9FA',
+    materialRef,
+    anchorX: 'center',
+    anchorY: 'middle',
+  }), []);
+
+  return (
+    <group ref={groupRef} position={[0, 0, 0.75]}>
+      <Text
+        {...config}
+        ref={materialRef}
+      >
+        MA
+      </Text>
+    </group>
+  );
+}
 
 function TinyMoon() {
   const [ceresMap] = useTexture(['/textures/ceres.jpg']);
@@ -28,6 +62,9 @@ function TinyMoon() {
           metalness={0.05}
         />
       </Sphere>
+
+      {/* Monogram sits just in front of the moon, behind nearest particles */}
+      <Monogram />
 
       {/**
        * Favicon-specific particle field: fewer, rounder, bigger, closer, rainbow arcs.
