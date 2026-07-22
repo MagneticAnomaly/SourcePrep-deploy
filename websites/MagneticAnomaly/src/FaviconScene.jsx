@@ -14,8 +14,6 @@ function Monogram() {
     }
   });
 
-  // Render the text FIRST and make it opaque so additive particles drawn on
-  // top brighten/tint the white letters wherever they overlap.
   useEffect(() => {
     const mesh = textRef.current;
     if (mesh) {
@@ -26,6 +24,9 @@ function Monogram() {
         material.opacity = 1.0;
         material.depthWrite = true;
         material.blending = THREE.NormalBlending;
+        // Smooth the glyph edges at high DPR.
+        material.smoothness = 0.65;
+        material.thickness = 0.025;
         material.needsUpdate = true;
       }
     }
@@ -33,7 +34,7 @@ function Monogram() {
 
   const config = useMemo(() => ({
     font: '/fonts/SpaceGrotesk-Bold.ttf',
-    fontSize: 0.85,
+    fontSize: 0.7,
     letterSpacing: -0.02,
     lineHeight: 1,
     color: '#F8F9FA',
@@ -65,7 +66,6 @@ function TinyMoon() {
 
   return (
     <group ref={moonRef}>
-      {/* Lighting tuned for a small, centered object */}
       <ambientLight intensity={0.5} />
       <directionalLight position={[10, 10, 20]} intensity={1.5} color="#FFEAC2" />
       <directionalLight position={[-10, -5, -10]} intensity={0.4} color="#F8F9FA" />
@@ -79,9 +79,6 @@ function TinyMoon() {
         />
       </Sphere>
 
-      {/**
-       * Favicon-specific particle field: fewer, rounder, bigger, closer, rainbow arcs.
-       */}
       <FaviconParticles />
     </group>
   );
@@ -91,8 +88,6 @@ function Scene() {
   return (
     <>
       <TinyMoon />
-      {/* Monogram sits just in front of the moon, behind nearest particles,
-          and outside the moon group so it does not rotate with the moon. */}
       <Monogram />
     </>
   );
