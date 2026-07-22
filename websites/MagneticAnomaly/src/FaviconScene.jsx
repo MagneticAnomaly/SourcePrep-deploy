@@ -16,8 +16,8 @@ function Monogram() {
 
   const config = useMemo(() => ({
     font: '/fonts/SpaceGrotesk-Bold.ttf',
-    fontSize: 0.42,
-    letterSpacing: -0.03,
+    fontSize: 0.62,
+    letterSpacing: -0.02,
     lineHeight: 1,
     color: '#F8F9FA',
     materialRef,
@@ -63,14 +63,22 @@ function TinyMoon() {
         />
       </Sphere>
 
-      {/* Monogram sits just in front of the moon, behind nearest particles */}
-      <Monogram />
-
       {/**
        * Favicon-specific particle field: fewer, rounder, bigger, closer, rainbow arcs.
        */}
       <FaviconParticles />
     </group>
+  );
+}
+
+function Scene() {
+  return (
+    <>
+      <TinyMoon />
+      {/* Monogram sits just in front of the moon, behind nearest particles,
+          and outside the moon group so it does not rotate with the moon. */}
+      <Monogram />
+    </>
   );
 }
 
@@ -83,7 +91,7 @@ export default function FaviconScene() {
         dpr={[3, 3]}
       >
         <Suspense fallback={null}>
-          <TinyMoon />
+          <Scene />
         </Suspense>
       </Canvas>
     </div>
