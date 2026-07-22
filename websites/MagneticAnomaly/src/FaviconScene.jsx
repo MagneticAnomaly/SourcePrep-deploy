@@ -1,4 +1,4 @@
-import React, { Suspense, useRef, useMemo } from 'react';
+import React, { Suspense, useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Sphere, useTexture, Text } from '@react-three/drei';
 import { FaviconParticles } from './FaviconParticles';
@@ -13,6 +13,20 @@ function Monogram() {
       groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.15) * 0.05;
     }
   });
+
+  // Once the text mesh exists, make its material semi-transparent so rainbow
+  // particles behind the letters tint the white MA. Without this the text is
+  // opaque and completely covers the particles.
+  useEffect(() => {
+    const material = textRef.current?.material;
+    if (material) {
+      material.transparent = true;
+      material.opacity = 0.45;
+      material.depthWrite = false;
+      material.blending = THREE.NormalBlending;
+      material.needsUpdate = true;
+    }
+  }, []);
 
   const config = useMemo(() => ({
     font: '/fonts/SpaceGrotesk-Bold.ttf',
@@ -32,24 +46,6 @@ function Monogram() {
       >
         MA
       </Text>
-      {/*
-        Particle-tint overlay: a full-screen-ish additive quad behind the
-        text (z < 0 relative to the text) so rainbow particles passing in front
-        of the moon naturally splash color onto the white letters. The quad is
-        mostly transparent; only where a bright particle overlaps it does the
-        additive blend brighten and tint the monogram.
-      */}
-      <mesh position={[0, 0, -0.05]}>
-        <planeGeometry args={[2.2, 1.6]} />
-        <meshBasicMaterial
-          color="#000000"
-          transparent
-          opacity={0.0}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
     </group>
   );
 }
