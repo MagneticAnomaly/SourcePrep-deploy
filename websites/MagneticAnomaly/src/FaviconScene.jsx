@@ -1,12 +1,12 @@
 import React, { Suspense, useRef, useMemo } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Sphere, useTexture, Text } from '@react-three/drei';
 import { FaviconParticles } from './FaviconParticles';
 import * as THREE from 'three';
 
 function Monogram() {
   const groupRef = useRef();
-  const materialRef = useRef();
+  const textRef = useRef();
 
   useFrame((state) => {
     if (groupRef.current) {
@@ -16,11 +16,10 @@ function Monogram() {
 
   const config = useMemo(() => ({
     font: '/fonts/SpaceGrotesk-Bold.ttf',
-    fontSize: 0.62,
+    fontSize: 0.78,
     letterSpacing: -0.02,
     lineHeight: 1,
     color: '#F8F9FA',
-    materialRef,
     anchorX: 'center',
     anchorY: 'middle',
   }), []);
@@ -29,10 +28,24 @@ function Monogram() {
     <group ref={groupRef} position={[0, 0, 0.75]}>
       <Text
         {...config}
-        ref={materialRef}
+        ref={textRef}
       >
         MA
       </Text>
+      {/* Overlay plane: lets nearby particles tint/brighten the monogram.
+          Sits slightly in front of the text, uses additive blending and a
+          low opacity so colored particles appear to splash across the letters. */}
+      <mesh position={[0, 0, 0.02]}>
+        <planeGeometry args={[1.35, 0.95]} />
+        <meshBasicMaterial
+          color="#ffffff"
+          transparent
+          opacity={0.18}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
     </group>
   );
 }
