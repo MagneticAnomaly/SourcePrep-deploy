@@ -38,7 +38,7 @@ curl -s localhost:8400/health | jq .status   # expect "ok"
 curl -sI localhost:5174 | head -1            # expect 200 OK
 
 # 3. Pick a project_id (any project that has a working repo path on disk)
-curl -s localhost:8400/projects | jq '.data[] | {id, name, path}'
+curl -s localhost:8400/projects | jq '.data.projects[] | {id, name, path}'
 ```
 
 If you don't have both servers, run `scripts/dev.sh` from the repo root — it brings up the daemon, dashboard, and storybook. The harness will fail fast with a clear error if either is missing.
