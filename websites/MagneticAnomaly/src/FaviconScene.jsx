@@ -6,8 +6,7 @@ import * as THREE from 'three';
 
 function Monogram() {
   const groupRef = useRef();
-  const mRef = useRef();
-  const aRef = useRef();
+  const textRef = useRef();
 
   useFrame((state) => {
     if (groupRef.current) {
@@ -16,28 +15,24 @@ function Monogram() {
   });
 
   useEffect(() => {
-    [mRef, aRef].forEach((ref) => {
-      const mesh = ref.current;
-      if (mesh) {
-        mesh.renderOrder = -10;
-        const material = mesh.material;
-        if (material) {
-          material.transparent = false;
-          material.opacity = 1.0;
-          material.depthWrite = true;
-          material.blending = THREE.NormalBlending;
-          material.smoothness = 0.65;
-          material.thickness = 0.025;
-          material.needsUpdate = true;
-        }
+    const mesh = textRef.current;
+    if (mesh) {
+      mesh.renderOrder = -10;
+      const material = mesh.material;
+      if (material) {
+        material.transparent = false;
+        material.opacity = 1.0;
+        material.depthWrite = true;
+        material.blending = THREE.NormalBlending;
+        material.needsUpdate = true;
       }
-    });
+    }
   }, []);
 
   const config = useMemo(() => ({
     font: '/fonts/SpaceGrotesk-Bold.ttf',
     fontSize: 0.735,
-    letterSpacing: -0.02,
+    letterSpacing: -0.03,
     lineHeight: 1,
     color: '#F8F9FA',
     anchorX: 'center',
@@ -46,11 +41,11 @@ function Monogram() {
 
   return (
     <group ref={groupRef} position={[0, 0, 0.75]}>
-      <Text {...config} ref={mRef} position={[-0.018, 0, 0]}>
-        M
-      </Text>
-      <Text {...config} ref={aRef} position={[0.018, 0, 0]}>
-        A
+      <Text
+        {...config}
+        ref={textRef}
+      >
+        MA
       </Text>
     </group>
   );
