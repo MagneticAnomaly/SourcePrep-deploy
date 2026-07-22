@@ -32,15 +32,19 @@ function Monogram() {
       >
         MA
       </Text>
-      {/* Overlay plane: lets nearby particles tint/brighten the monogram.
-          Sits slightly in front of the text, uses additive blending and a
-          low opacity so colored particles appear to splash across the letters. */}
-      <mesh position={[0, 0, 0.02]}>
-        <planeGeometry args={[1.35, 0.95]} />
+      {/*
+        Particle-tint overlay: a full-screen-ish additive quad behind the
+        text (z < 0 relative to the text) so rainbow particles passing in front
+        of the moon naturally splash color onto the white letters. The quad is
+        mostly transparent; only where a bright particle overlaps it does the
+        additive blend brighten and tint the monogram.
+      */}
+      <mesh position={[0, 0, -0.05]}>
+        <planeGeometry args={[2.2, 1.6]} />
         <meshBasicMaterial
-          color="#ffffff"
+          color="#000000"
           transparent
-          opacity={0.18}
+          opacity={0.0}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
           side={THREE.DoubleSide}
