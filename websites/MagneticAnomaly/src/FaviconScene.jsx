@@ -6,7 +6,8 @@ import * as THREE from 'three';
 
 function Monogram() {
   const groupRef = useRef();
-  const textRef = useRef();
+  const mRef = useRef();
+  const aRef = useRef();
 
   useFrame((state) => {
     if (groupRef.current) {
@@ -15,40 +16,51 @@ function Monogram() {
   });
 
   useEffect(() => {
-    const mesh = textRef.current;
-    if (mesh) {
-      mesh.renderOrder = -10;
-      const material = mesh.material;
-      if (material) {
-        material.transparent = false;
-        material.opacity = 1.0;
-        material.depthWrite = true;
-        material.blending = THREE.NormalBlending;
-        // Smooth the glyph edges at high DPR.
-        material.smoothness = 0.65;
-        material.thickness = 0.025;
-        material.needsUpdate = true;
+    [mRef, aRef].forEach((ref) => {
+      const mesh = ref.current;
+      if (mesh) {
+        mesh.renderOrder = -10;
+        const material = mesh.material;
+        if (material) {
+          material.transparent = false;
+          material.opacity = 1.0;
+          material.depthWrite = true;
+          material.blending = THREE.NormalBlending;
+          material.smoothness = 0.65;
+          material.thickness = 0.025;
+          material.needsUpdate = true;
+        }
       }
-    }
+    });
   }, []);
 
-  const config = useMemo(() => ({
+  const mConfig = useMemo(() => ({
     font: '/fonts/SpaceGrotesk-Bold.ttf',
-    fontSize: 0.75,
+    fontSize: 0.735,
     letterSpacing: -0.02,
     lineHeight: 1,
     color: '#F8F9FA',
-    anchorX: 'center',
+    anchorX: 'right',
+    anchorY: 'middle',
+  }), []);
+
+  const aConfig = useMemo(() => ({
+    font: '/fonts/SpaceGrotesk-Bold.ttf',
+    fontSize: 0.735,
+    letterSpacing: -0.02,
+    lineHeight: 1,
+    color: '#F8F9FA',
+    anchorX: 'left',
     anchorY: 'middle',
   }), []);
 
   return (
     <group ref={groupRef} position={[0, 0, 0.75]}>
-      <Text
-        {...config}
-        ref={textRef}
-      >
-        MA
+      <Text {...mConfig} ref={mRef} position={[-0.01, 0, 0]}>
+        M
+      </Text>
+      <Text {...aConfig} ref={aRef} position={[0.015, 0, 0]}>
+        A
       </Text>
     </group>
   );
