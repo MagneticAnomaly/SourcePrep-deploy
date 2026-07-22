@@ -229,6 +229,21 @@ class Api:
             timeout=self._HEAVY_POST_TIMEOUT_S,
         ))
 
+    def pause(self, pid: str, group: str) -> Any:
+        """POST /pipeline/pause. Body MUST carry the group explicitly —
+        PauseRequest defaults to fast_sync, so an empty body silently
+        pauses the wrong group (same class as the cancel empty-body bug,
+        PROPOSAL §9.1)."""
+        return self._unwrap(self.http.post(
+            f"/projects/{pid}/pipeline/pause", json={"group": group},
+        ))
+
+    def resume(self, pid: str, group: str) -> Any:
+        """POST /pipeline/resume (per-project group resume, ResumeGroupRequest)."""
+        return self._unwrap(self.http.post(
+            f"/projects/{pid}/pipeline/resume", json={"group": group},
+        ))
+
     def cancel(self, pid: str) -> Any:
         return self._unwrap(self.http.post(f"/projects/{pid}/pipeline/cancel"))
 
@@ -833,6 +848,121 @@ def _advance_scheduled_actions(
     return new_refresh, new_update, actions
 
 
+def _advance_pause_actions(
+    elapsed: float,
+    *,
+    pause_at_secs: Optional[float],
+    resume_at_secs: Optional[float],
+    pause_fired: bool,
+    resume_fired: bool,
+    pause_target_available: bool,
+) -> tuple[bool, bool, list[str]]:
+    """Op-5 scheduler — decide whether the pause / resume side effect
+    fires on this tick. Pure function; sibling of
+    `_advance_scheduled_actions` (kept separate so that function's
+    3-tuple contract and its pinned tests stay untouched).
+
+    Semantics:
+      - "pause" fires when `elapsed >= pause_at_secs` AND a running
+        group exists (`pause_target_available`). No running group →
+        defer to a later tick WITHOUT marking fired — pausing nothing
+        is not a pause test. May therefore fire later than scheduled;
+        callers log the actual elapsed.
+      - "resume" fires when `elapsed >= resume_at_secs` AND the pause
+        already fired on a PREVIOUS tick (`pause_fired` is the pre-tick
+        value) — never same-tick as its pause, so the paused state is
+        observable for at least one poll interval. Resume does not need
+        a running target (the group is paused, not running).
+      - Both are at-most-once per watch. None threshold = never fire.
+    """
+    actions: list[str] = []
+    new_pause = pause_fired
+    new_resume = resume_fired
+    if (pause_at_secs is not None
+            and not pause_fired
+            and elapsed >= pause_at_secs
+            and pause_target_available):
+        new_pause = True
+        actions.append("pause")
+    if (resume_at_secs is not None
+            and not resume_fired
+            and pause_fired          # pre-tick value: never same-tick as pause
+            and elapsed >= resume_at_secs):
+        new_resume = True
+        actions.append("resume")
+    return new_pause, new_resume, actions
+
+
+def _log_pause_action_failure(
+    ctx: "RunContext",
+    now_wall: float,
+    action: str,
+    group: str,
+    e: Exception,
+) -> None:
+    """Classify a failed scheduled pause/resume POST.
+
+    State rejections (group finished or resumed itself between the
+    observation tick and the post — a 2s race) and transport errors are
+    informational notes; anything else is a real error and counts.
+    Mirrors the Op-4 scheduled-update classification (§9.3 #22 B4).
+    """
+    msg = str(e)
+    is_state_reject = (
+        "409" in msg or "400" in msg
+        or "not running" in msg.lower()
+        or "not paused" in msg.lower()
+    )
+    if is_state_reject:
+        ctx.log(Event(now_wall, "note", {
+            "detail": f"scheduled_{action}_rejected",
+            "group": group,
+            "context": msg[:200],
+        }))
+    elif isinstance(e, (httpx.TimeoutException, httpx.HTTPError)):
+        ctx.log(Event(now_wall, "note", {
+            "detail": f"scheduled_{action}_transport_error",
+            "subtype": type(e).__name__,
+            "context": msg[:200],
+        }))
+    else:
+        ctx.log(Event(now_wall, "error", {
+            "where": f"scheduled_{action}",
+            "detail": msg,
+        }))
+        ctx.summary.error_count += 1
+
+
+def _log_unfired_pause(
+    ctx: "RunContext",
+    now_wall: float,
+    *,
+    pause_at_secs: Optional[float],
+    pause_fired: bool,
+    resume_at_secs: Optional[float],
+    resume_fired: bool,
+    elapsed: float,
+) -> None:
+    """Silent-cap rule: a scheduled pause/resume that never fired must
+    surface as a note in events.jsonl, not vanish. Typical cause: the
+    rebuild completed before `pause_at_secs` (tiny repo), so no running
+    group was ever available to pause — the Op-5 iter proved nothing
+    about pause states and the triage reader needs to know that.
+    """
+    if pause_at_secs is not None and not pause_fired:
+        ctx.log(Event(now_wall, "note", {
+            "detail": "scheduled_pause_never_fired",
+            "scheduled_at_s": pause_at_secs,
+            "elapsed_s": round(elapsed, 1),
+        }))
+    elif resume_at_secs is not None and pause_fired and not resume_fired:
+        ctx.log(Event(now_wall, "note", {
+            "detail": "scheduled_resume_never_fired",
+            "scheduled_at_s": resume_at_secs,
+            "elapsed_s": round(elapsed, 1),
+        }))
+
+
 def expand_all_groups(page: Page, timeout_ms: int = 3_000) -> int:
     """Click the chevron on every collapsed pipeline group. Returns the
     count of groups expanded.
@@ -881,6 +1011,8 @@ def watch_until_idle(
     repo_path: Optional[Path] = None,
     refresh_at_secs: Optional[float] = None,
     update_at_secs: Optional[float] = None,
+    pause_at_secs: Optional[float] = None,
+    resume_at_secs: Optional[float] = None,
     project_name: Optional[str] = None,
     budget_raisable: bool = True,
 ) -> bool:
@@ -964,6 +1096,15 @@ def watch_until_idle(
     refresh_fired = False
     update_fired = False
     post_reload_recovery = False
+    # Op-5: pause/resume scheduled-action state. `pause_target_group` is
+    # refreshed from each successful status poll (one tick stale at
+    # dispatch time — a pause race just produces a rejected-note, not an
+    # error). `paused_group` remembers which group we actually paused so
+    # the resume targets the same one.
+    pause_fired = False
+    resume_fired = False
+    pause_target_group: Optional[str] = None
+    paused_group: Optional[str] = None
 
     while True:
         # B3: now_mono drives all elapsed math (next_poll, idle_since,
@@ -976,6 +1117,9 @@ def watch_until_idle(
             ctx.log(Event(now_wall, "error", {"detail": "watch_until_idle timeout", "elapsed_s": round(elapsed, 1)}))
             ctx.summary.error_count += 1
             ctx.snap(page, "timeout")
+            _log_unfired_pause(ctx, now_wall, pause_at_secs=pause_at_secs,
+                               pause_fired=pause_fired, resume_at_secs=resume_at_secs,
+                               resume_fired=resume_fired, elapsed=elapsed)
             return False
 
         # Phase 145 T3: scheduled side effects. _advance_scheduled_actions
@@ -1067,6 +1211,51 @@ def watch_until_idle(
                 else:
                     ctx.snap(page, "after_scheduled_update")
 
+        # Op-5: pause/resume scheduled side effects. Separate pure
+        # scheduler so _advance_scheduled_actions' pinned 3-tuple
+        # contract stays untouched. pause_target_group is the previous
+        # tick's observation — a 2s race just yields a rejected-note.
+        pause_fired, resume_fired, pause_actions = _advance_pause_actions(
+            elapsed,
+            pause_at_secs=pause_at_secs,
+            resume_at_secs=resume_at_secs,
+            pause_fired=pause_fired,
+            resume_fired=resume_fired,
+            pause_target_available=pause_target_group is not None,
+        )
+        for action in pause_actions:
+            if action == "pause":
+                group = pause_target_group or "fast_sync"
+                ctx.log(Event(now_wall, "note", {
+                    "detail": "scheduled_pause_fired",
+                    "group": group,
+                    "elapsed_s": round(elapsed, 1),
+                    "scheduled_at_s": pause_at_secs,
+                }))
+                ctx.snap(page, "before_scheduled_pause")
+                try:
+                    api.pause(pid, group)
+                except Exception as e:
+                    _log_pause_action_failure(ctx, now_wall, "pause", group, e)
+                else:
+                    paused_group = group
+                    ctx.snap(page, "after_scheduled_pause")
+            elif action == "resume":
+                group = paused_group or pause_target_group or "fast_sync"
+                ctx.log(Event(now_wall, "note", {
+                    "detail": "scheduled_resume_fired",
+                    "group": group,
+                    "elapsed_s": round(elapsed, 1),
+                    "scheduled_at_s": resume_at_secs,
+                }))
+                ctx.snap(page, "before_scheduled_resume")
+                try:
+                    api.resume(pid, group)
+                except Exception as e:
+                    _log_pause_action_failure(ctx, now_wall, "resume", group, e)
+                else:
+                    ctx.snap(page, "after_scheduled_resume")
+
         # Post-reload recovery: as soon as the panel is back in the DOM,
         # re-select the project (the reload reset selectedProjectId to
         # null per src/prep/dashboard/src/hooks/useProjectManager.ts; the
@@ -1106,6 +1295,13 @@ def watch_until_idle(
 
             dom = scrape_pipeline_dom(page)
             running = is_any_running(status)
+            # Op-5: remember which group (if any) is running so the next
+            # tick's pause dispatch has a target.
+            pause_target_group = next(
+                (g for g, slot in _group_phase(status).items()
+                 if slot.get("phase") == "running"),
+                None,
+            )
 
             # Phase 118 extra scrutiny — non-blocking anomaly checks. Run
             # AFTER the canonical desync detector (below) so it remains
@@ -1237,6 +1433,9 @@ def watch_until_idle(
             if saw_running and idle_since and (now_mono - idle_since) >= settle_seconds:
                 ctx.log(Event(now_wall, "note", {"detail": "settled_idle", "elapsed_s": round(elapsed, 1)}))
                 ctx.snap(page, "settled_idle")
+                _log_unfired_pause(ctx, now_wall, pause_at_secs=pause_at_secs,
+                                   pause_fired=pause_fired, resume_at_secs=resume_at_secs,
+                                   resume_fired=resume_fired, elapsed=elapsed)
                 return ok
 
             # If we never saw a running state and it's been >startup_grace_seconds,
@@ -1245,6 +1444,9 @@ def watch_until_idle(
             if not saw_running and elapsed > startup_grace_seconds * 2 and not running:
                 ctx.log(Event(now_wall, "note", {"detail": "no_activity_observed", "elapsed_s": round(elapsed, 1)}))
                 ctx.snap(page, "no_activity")
+                _log_unfired_pause(ctx, now_wall, pause_at_secs=pause_at_secs,
+                                   pause_fired=pause_fired, resume_at_secs=resume_at_secs,
+                                   resume_fired=resume_fired, elapsed=elapsed)
                 return ok
 
         time.sleep(0.25)
@@ -1421,6 +1623,8 @@ def run_rebuild(
     *,
     refresh_at_secs: Optional[float] = None,
     update_at_secs: Optional[float] = None,
+    pause_at_secs: Optional[float] = None,
+    resume_at_secs: Optional[float] = None,
     project_name: Optional[str] = None,
 ) -> bool:
     reason = "POST /pipeline/rebuild"
@@ -1428,6 +1632,10 @@ def run_rebuild(
         reason += f" + scheduled page.reload() @ {refresh_at_secs}s"
     if update_at_secs is not None:
         reason += f" + scheduled POST /pipeline/all @ {update_at_secs}s"
+    if pause_at_secs is not None:
+        reason += f" + scheduled pause @ {pause_at_secs}s"
+        if resume_at_secs is not None:
+            reason += f" / resume @ {resume_at_secs}s"
     ctx.summary.trigger_reason = reason
     ctx.snap(page, "before_rebuild")
     try:
@@ -1456,6 +1664,8 @@ def run_rebuild(
         repo_path=repo_path,
         refresh_at_secs=refresh_at_secs,
         update_at_secs=update_at_secs,
+        pause_at_secs=pause_at_secs,
+        resume_at_secs=resume_at_secs,
         project_name=project_name,
     )
 
@@ -1678,6 +1888,13 @@ def main(argv: list[str]) -> int:
                     help="During a `rebuild` watch, fire page.reload() once at this elapsed-second mark. Op-3.")
     ap.add_argument("--update-at-secs", type=float, default=None,
                     help="During a `rebuild` watch, POST /pipeline/all once at this elapsed-second mark. Op-4.")
+    ap.add_argument("--pause-at-secs", type=float, default=None,
+                    help="During a `rebuild` watch, POST /pipeline/pause against the currently "
+                         "running group once at (or after) this elapsed-second mark — defers "
+                         "until a group is actually running. Op-5.")
+    ap.add_argument("--resume-at-secs", type=float, default=None,
+                    help="POST /pipeline/resume for the paused group at this elapsed-second "
+                         "mark (must be > --pause-at-secs; fires only after the pause did). Op-5.")
     # §9.3 #22 B2: per_iter_timeout in run_session SIGKILLs the child
     # before its 60-min default watch can ever return — so ctx.snap(page,
     # "timeout") never runs and there is no DOM evidence of the hung
@@ -1707,15 +1924,37 @@ def main(argv: list[str]) -> int:
     # `rebuild` mode today. Hard error rather than silently ignore: a user
     # passing these flags with a different mode is almost certainly making
     # a mistake (and Op-3/Op-4 from run_session always include rebuild).
-    if (args.refresh_at_secs is not None or args.update_at_secs is not None):
+    if (args.refresh_at_secs is not None or args.update_at_secs is not None
+            or args.pause_at_secs is not None or args.resume_at_secs is not None):
         if "rebuild" not in modes:
             print(
-                "ERROR: --refresh-at-secs / --update-at-secs only fire during `rebuild`; "
+                "ERROR: --refresh-at-secs / --update-at-secs / --pause-at-secs / "
+                "--resume-at-secs only fire during `rebuild`; "
                 f"current modes={modes} would silently ignore them. "
                 "Either add `rebuild` to --modes or drop the scheduled-action flag.",
                 file=sys.stderr,
             )
             return 2
+
+    # Op-5 flag coherence: resume without pause is meaningless, and a
+    # resume scheduled at-or-before the pause could never fire (resume
+    # requires the pause to have fired on a PRIOR tick).
+    if args.resume_at_secs is not None and args.pause_at_secs is None:
+        print(
+            "ERROR: --resume-at-secs requires --pause-at-secs (there is nothing "
+            "to resume without a scheduled pause).",
+            file=sys.stderr,
+        )
+        return 2
+    if (args.pause_at_secs is not None and args.resume_at_secs is not None
+            and args.resume_at_secs <= args.pause_at_secs):
+        print(
+            f"ERROR: --resume-at-secs ({args.resume_at_secs}) must be strictly greater "
+            f"than --pause-at-secs ({args.pause_at_secs}) — the resume only fires after "
+            "the pause has fired on a previous poll tick.",
+            file=sys.stderr,
+        )
+        return 2
 
     # §9.3 #22 B2: install the watch budget cap before any mode runs.
     # Use globals() to bypass UnboundLocalError on a write-then-read in
@@ -1786,6 +2025,8 @@ def main(argv: list[str]) -> int:
                                 api, page, args.project_id, ctx, repo_path,
                                 refresh_at_secs=args.refresh_at_secs,
                                 update_at_secs=args.update_at_secs,
+                                pause_at_secs=args.pause_at_secs,
+                                resume_at_secs=args.resume_at_secs,
                                 project_name=project_name,
                             )
                         elif mode == "rebuild-sync":

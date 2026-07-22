@@ -432,7 +432,7 @@ class TestRenderScorecard:
         assert "# Phase 145 UAT Scorecard — 2026-06-22" in md
         assert "**Project:** `proj-uuid`" in md
         assert "**Iterations per op:** 3" in md
-        assert "**Iterations recorded:** 0/12 (partial)" in md
+        assert f"**Iterations recorded:** 0/{3 * len(OPERATIONS)} (partial)" in md
         assert "NOTE: partial session" in md
         assert "Status legend:" in md
         assert "| Op | Iter | Status | I1 | I2 | I3 | I13 | Notes |" in md
@@ -787,14 +787,15 @@ class TestPartialSessionRendering:
                        invariants={k: True for k in SHIPPED_INVARIANTS}),
         ])
         md = render_scorecard(m, today="2026-06-22")
-        # 1 of 12 planned (3 iters × 4 ops)
-        assert "**Iterations recorded:** 1/12 (partial)" in md
+        # 1 of (3 iters × len(OPERATIONS)) planned — derived, not
+        # hardcoded, so the op matrix can grow (Op-5 did).
+        assert f"**Iterations recorded:** 1/{3 * len(OPERATIONS)} (partial)" in md
         assert "NOTE: partial session" in md
 
     def test_complete_session_marker_when_all_iters_recorded(self):
         results = []
         for op in OPERATIONS:
-            for n in range(1, 4):  # 3 iters per op = 12 total
+            for n in range(1, 4):  # 3 iters per op
                 results.append(IterResult(
                     op_id=op.id, iter_num=n, run_dir=f"/r/{op.id}/{n}",
                     status="pass",
@@ -802,7 +803,8 @@ class TestPartialSessionRendering:
                 ))
         m = _manifest_with(results)
         md = render_scorecard(m, today="2026-06-22")
-        assert "**Iterations recorded:** 12/12 (complete)" in md
+        total = 3 * len(OPERATIONS)
+        assert f"**Iterations recorded:** {total}/{total} (complete)" in md
         assert "NOTE: partial session" not in md
 
     def test_trends_use_planned_denominator_on_partial(self):
@@ -3102,3 +3104,192 @@ class TestWatchBudgetRaise:
             "raising — a reset that hangs for the full raised budget "
             "would burn an hours-long session on a 60s operation"
         )
+
+
+class TestPauseResumeScheduledActions:
+    """Op-5 — pause/resume mid-rebuild scheduled actions.
+
+    Closes the pause-coverage gap in the op matrix: Op-1..Op-4 exercise
+    initial/incremental/rebuild/refresh/update but nothing ever drives
+    the state machine through running→pausing→paused→running while the
+    UI is observed. The pipeline-testing skill's P1-P6 matrix stays the
+    manual/backend companion; Op-5 is its automated UI-facing slice.
+    """
+
+    # ── pure scheduler ────────────────────────────────────────────
+
+    def test_pause_fires_only_after_threshold_and_with_target(self):
+        import tools.playwright_smoke as ps
+
+        p, r, actions = ps._advance_pause_actions(
+            10.0, pause_at_secs=25.0, resume_at_secs=55.0,
+            pause_fired=False, resume_fired=False, pause_target_available=True,
+        )
+        assert (p, r, actions) == (False, False, [])
+
+        p, r, actions = ps._advance_pause_actions(
+            30.0, pause_at_secs=25.0, resume_at_secs=55.0,
+            pause_fired=False, resume_fired=False, pause_target_available=False,
+        )
+        assert (p, r, actions) == (False, False, []), (
+            "no running group at fire time → defer to a later tick, do "
+            "NOT mark fired (pausing nothing is not a pause test)"
+        )
+
+        p, r, actions = ps._advance_pause_actions(
+            30.0, pause_at_secs=25.0, resume_at_secs=55.0,
+            pause_fired=False, resume_fired=False, pause_target_available=True,
+        )
+        assert (p, r, actions) == (True, False, ["pause"])
+
+    def test_pause_at_most_once(self):
+        import tools.playwright_smoke as ps
+
+        p, r, actions = ps._advance_pause_actions(
+            60.0, pause_at_secs=25.0, resume_at_secs=None,
+            pause_fired=True, resume_fired=False, pause_target_available=True,
+        )
+        assert actions == []
+        assert p is True
+
+    def test_resume_requires_prior_tick_pause(self):
+        import tools.playwright_smoke as ps
+
+        # Both thresholds long past, pause not yet fired: this tick may
+        # only fire the pause; resume must wait for a later tick so the
+        # paused state is observable for at least one poll.
+        p, r, actions = ps._advance_pause_actions(
+            60.0, pause_at_secs=25.0, resume_at_secs=55.0,
+            pause_fired=False, resume_fired=False, pause_target_available=True,
+        )
+        assert actions == ["pause"]
+        assert r is False
+
+        # Next tick: pause_fired=True → resume fires. Resume does NOT
+        # require a running target (the group is paused, not running).
+        p2, r2, actions2 = ps._advance_pause_actions(
+            62.0, pause_at_secs=25.0, resume_at_secs=55.0,
+            pause_fired=True, resume_fired=False, pause_target_available=False,
+        )
+        assert actions2 == ["resume"]
+        assert r2 is True
+
+    def test_resume_at_most_once_and_none_never_fires(self):
+        import tools.playwright_smoke as ps
+
+        p, r, actions = ps._advance_pause_actions(
+            120.0, pause_at_secs=25.0, resume_at_secs=55.0,
+            pause_fired=True, resume_fired=True, pause_target_available=True,
+        )
+        assert actions == []
+
+        p, r, actions = ps._advance_pause_actions(
+            9999.0, pause_at_secs=None, resume_at_secs=None,
+            pause_fired=False, resume_fired=False, pause_target_available=True,
+        )
+        assert (p, r, actions) == (False, False, [])
+
+    # ── Api endpoint shape ────────────────────────────────────────
+
+    def test_api_pause_resume_post_shape(self, monkeypatch):
+        """Body must be {"group": <g>} per PauseRequest/ResumeGroupRequest
+        (src/prep/api/routers/pipeline.py:104-120). An empty-body post
+        would silently pause fast_sync (the schema default) — the exact
+        wrong-target class the cancel-quiesce empty-body bug taught us.
+        """
+        import tools.playwright_smoke as ps
+
+        api = ps.Api("http://x")
+        calls: list[tuple] = []
+
+        class FakeResp:
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"success": True, "data": {}}
+
+        monkeypatch.setattr(
+            api.http, "post",
+            lambda url, **kw: (calls.append((url, kw)), FakeResp())[1],
+        )
+        api.pause("pid1", "deep_enrichment")
+        api.resume("pid1", "deep_enrichment")
+
+        assert calls[0][0] == "/projects/pid1/pipeline/pause"
+        assert calls[0][1].get("json") == {"group": "deep_enrichment"}
+        assert calls[1][0] == "/projects/pid1/pipeline/resume"
+        assert calls[1][1].get("json") == {"group": "deep_enrichment"}
+
+    # ── CLI guards ────────────────────────────────────────────────
+
+    def test_pause_flag_requires_rebuild_mode(self, capsys):
+        import tools.playwright_smoke as ps
+
+        rc = ps.main([
+            "--project-id", "x", "--modes", "incremental",
+            "--pause-at-secs", "25", "--resume-at-secs", "55",
+        ])
+        assert rc == 2
+        assert "rebuild" in capsys.readouterr().err
+
+    def test_resume_flag_requires_pause_flag(self, capsys):
+        import tools.playwright_smoke as ps
+
+        rc = ps.main([
+            "--project-id", "x", "--modes", "rebuild",
+            "--resume-at-secs", "55",
+        ])
+        assert rc == 2
+        assert "--pause-at-secs" in capsys.readouterr().err
+
+    def test_resume_must_be_after_pause(self, capsys):
+        import tools.playwright_smoke as ps
+
+        rc = ps.main([
+            "--project-id", "x", "--modes", "rebuild",
+            "--pause-at-secs", "55", "--resume-at-secs", "30",
+        ])
+        assert rc == 2
+        err = capsys.readouterr().err
+        assert "--resume-at-secs" in err
+
+    # ── run_session Op-5 pin ──────────────────────────────────────
+
+    def test_op5_in_operations_table(self):
+        op = OP_BY_ID.get("Op-5")
+        assert op is not None, "Op-5 Pause/resume mid-rebuild must exist"
+        assert op.smoke_mode == "rebuild"
+        assert "--pause-at-secs" in op.extra_args
+        assert "--resume-at-secs" in op.extra_args
+        args = dict(zip(op.extra_args[::2], op.extra_args[1::2]))
+        # Must fire after the deaf-detector window (grace 15s + 2-tick
+        # persistence ≈ 19s — same rationale as Op-4's 20s).
+        assert float(args["--pause-at-secs"]) >= 20
+        assert float(args["--resume-at-secs"]) > float(args["--pause-at-secs"])
+
+    # ── structural pins ───────────────────────────────────────────
+
+    def test_watch_loop_dispatches_pause_actions(self):
+        import inspect
+
+        import tools.playwright_smoke as ps
+
+        src = inspect.getsource(ps.watch_until_idle)
+        assert "_advance_pause_actions(" in src
+        assert "scheduled_pause_fired" in src
+        assert "scheduled_resume_fired" in src
+        # Silent-cap rule: a pause that never found a running group to
+        # pause must surface as a note, not vanish.
+        assert "_log_unfired_pause(" in src
+
+    def test_unfired_pause_helper_covers_both_signals(self):
+        import inspect
+
+        import tools.playwright_smoke as ps
+
+        src = inspect.getsource(ps._log_unfired_pause)
+        assert "scheduled_pause_never_fired" in src
+        assert "scheduled_resume_never_fired" in src

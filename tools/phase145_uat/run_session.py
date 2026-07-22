@@ -123,6 +123,15 @@ OPERATIONS: tuple[Operation, ...] = (
     # emit is possible — anything fired before 19s lands in a deaf
     # detector. 20s gives one safety tick after grace expires.
     Operation("Op-4", "Update during Rebuild",  "rebuild",     ("--update-at-secs", "20")),
+    # Op-5 exercises running→pausing→paused→running while the UI is
+    # observed (the pause-coverage gap in the original matrix; the
+    # pipeline-testing skill's P1-P6 stays the manual/backend companion).
+    # Pause at 25s (after the 20s deaf-detector window, same rationale as
+    # Op-4; defers further until a group is actually running). Resume at
+    # 55s → ≥30s of paused-state rendering ≈ 15 polls under the shipped
+    # invariants (paused is in ACTIVE_PIPELINE_PHASES, so I1/I3/I13 stay
+    # armed and I13 asserts the current-stage indicator on paused rows).
+    Operation("Op-5", "Pause/resume mid-rebuild", "rebuild",   ("--pause-at-secs", "25", "--resume-at-secs", "55")),
 )
 
 OP_BY_ID: dict[str, Operation] = {op.id: op for op in OPERATIONS}
