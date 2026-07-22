@@ -34,7 +34,7 @@ function Monogram() {
 
   const config = useMemo(() => ({
     font: '/fonts/SpaceGrotesk-Bold.ttf',
-    fontSize: 0.7,
+    fontSize: 0.75,
     letterSpacing: -0.02,
     lineHeight: 1,
     color: '#F8F9FA',
