@@ -3293,3 +3293,158 @@ class TestPauseResumeScheduledActions:
         src = inspect.getsource(ps._log_unfired_pause)
         assert "scheduled_pause_never_fired" in src
         assert "scheduled_resume_never_fired" in src
+
+
+class TestPauseOpScrutinyFixes:
+    """Adversarial-verify fixes for the Op-5 drop (2026-07-22 refute pass).
+
+    F1 (must-fix): the state-reject classifier tested `"400" in msg` —
+    which matches the ':8400' port embedded in every httpx error URL, so
+    every non-2xx (500s included) was demoted to an informational note
+    and the error branch was unreachable. Classification must key on the
+    RESPONSE status code, not substrings of a URL-bearing message.
+    F2: pause/resume are synchronous heavy routes (30s worker-flush +
+    checkpoint) — they need _HEAVY_POST_TIMEOUT_S like the other heavy
+    endpoints, and a failed pause POST must still record the intended
+    group so the resume aims at the right target.
+    F3: "prior tick" was a 0.25s loop iteration, not a status poll — a
+    deferred pause could resume with ZERO polls observing the paused
+    state. Resume now requires >=1 successful post-pause poll.
+    F4: a race-rejected pause un-latches so the scheduler retries (or
+    the never-fired note surfaces); a rejected pause must not silently
+    count as pause coverage.
+    """
+
+    class _FakeCtx:
+        def __init__(self):
+            self.events = []
+
+            class _S:
+                error_count = 0
+
+            self.summary = _S()
+
+        def log(self, ev):
+            self.events.append(ev)
+
+    @staticmethod
+    def _http_status_error(code: int):
+        import httpx
+
+        req = httpx.Request("POST", "http://localhost:8400/projects/p/pipeline/pause")
+        resp = httpx.Response(code, request=req)
+        return httpx.HTTPStatusError(
+            f"Error '{code}' for url 'http://localhost:8400/projects/p/pipeline/pause'",
+            request=req, response=resp,
+        )
+
+    def test_classifier_500_is_error_despite_8400_in_url(self):
+        import tools.playwright_smoke as ps
+
+        ctx = self._FakeCtx()
+        cls = ps._log_pause_action_failure(ctx, 0.0, "pause", "fast_sync",
+                                           self._http_status_error(500))
+        assert cls == "error"
+        assert ctx.summary.error_count == 1, (
+            "F1: a daemon 500 on /pipeline/pause is exactly the product-bug "
+            "class Op-5 exists to catch — it must count as an error, not be "
+            "demoted because ':8400' contains '400'"
+        )
+
+    def test_classifier_409_and_400_are_rejected_notes(self):
+        import tools.playwright_smoke as ps
+
+        for code in (409, 400):
+            ctx = self._FakeCtx()
+            cls = ps._log_pause_action_failure(ctx, 0.0, "pause", "deep_enrichment",
+                                               self._http_status_error(code))
+            assert cls == "rejected"
+            assert ctx.summary.error_count == 0
+            assert any(
+                ev.data.get("detail") == "scheduled_pause_rejected"
+                for ev in ctx.events if getattr(ev, "kind", "") == "note"
+            )
+
+    def test_classifier_timeout_is_transport_note(self):
+        import httpx
+
+        import tools.playwright_smoke as ps
+
+        ctx = self._FakeCtx()
+        cls = ps._log_pause_action_failure(ctx, 0.0, "resume", "finalize",
+                                           httpx.ReadTimeout("timed out"))
+        assert cls == "transport"
+        assert ctx.summary.error_count == 0
+
+    def test_api_pause_resume_use_heavy_timeout(self, monkeypatch):
+        import tools.playwright_smoke as ps
+
+        api = ps.Api("http://x")
+        calls = []
+
+        class FakeResp:
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"success": True, "data": {}}
+
+        monkeypatch.setattr(
+            api.http, "post",
+            lambda url, **kw: (calls.append(kw), FakeResp())[1],
+        )
+        api.pause("p", "fast_sync")
+        api.resume("p", "fast_sync")
+        assert calls[0].get("timeout") == ps.Api._HEAVY_POST_TIMEOUT_S
+        assert calls[1].get("timeout") == ps.Api._HEAVY_POST_TIMEOUT_S
+
+    def test_resume_requires_observed_poll_of_paused_state(self):
+        import tools.playwright_smoke as ps
+
+        # pause fired, but zero status polls have observed the paused
+        # state → resume must hold (F3).
+        p, r, actions = ps._advance_pause_actions(
+            60.0, pause_at_secs=25.0, resume_at_secs=55.0,
+            pause_fired=True, resume_fired=False,
+            pause_target_available=False, polls_since_pause=0,
+        )
+        assert actions == []
+        assert r is False
+        # One observed poll → resume may fire.
+        p, r, actions = ps._advance_pause_actions(
+            60.0, pause_at_secs=25.0, resume_at_secs=55.0,
+            pause_fired=True, resume_fired=False,
+            pause_target_available=False, polls_since_pause=1,
+        )
+        assert actions == ["resume"]
+
+    def test_watch_loop_counts_polls_and_unlatches_rejected_pause(self):
+        import inspect
+
+        import tools.playwright_smoke as ps
+
+        src = inspect.getsource(ps.watch_until_idle)
+        assert "polls_since_pause" in src, "F3: poll-gated resume must be wired"
+        assert "pause_fired = False" in src, (
+            "F4: a race-rejected pause must un-latch so the scheduler "
+            "retries against the next running group (or the never-fired "
+            "note surfaces at exit)"
+        )
+
+    def test_interrupt_cancel_posts_explicit_group_bodies(self):
+        """F5 (pre-existing, Op-5 raises the stakes): the KeyboardInterrupt
+        handler used the empty-body Api.cancel — CancelRequest defaults to
+        fast_sync, so a Ctrl-C during Op-5's paused window left
+        deep_enrichment/finalize paused. The handler must cancel every
+        group with an explicit body."""
+        import inspect
+
+        import tools.playwright_smoke as ps
+
+        src = inspect.getsource(ps.main)
+        assert "cancel_all_groups" in src
+
+        helper = inspect.getsource(ps.Api.cancel_all_groups)
+        assert '"group"' in helper and '"reason"' in helper

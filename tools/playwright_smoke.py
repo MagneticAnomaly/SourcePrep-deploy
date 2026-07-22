@@ -233,16 +233,45 @@ class Api:
         """POST /pipeline/pause. Body MUST carry the group explicitly —
         PauseRequest defaults to fast_sync, so an empty body silently
         pauses the wrong group (same class as the cancel empty-body bug,
-        PROPOSAL §9.1)."""
+        PROPOSAL §9.1). Heavy timeout: the route is SYNCHRONOUS — up to
+        30s of worker-flush wait plus checkpoint creation before it
+        returns (orchestrator._pause_group), so the 30s client default
+        times out on pauses that actually succeed server-side."""
         return self._unwrap(self.http.post(
             f"/projects/{pid}/pipeline/pause", json={"group": group},
+            timeout=self._HEAVY_POST_TIMEOUT_S,
         ))
 
     def resume(self, pid: str, group: str) -> Any:
-        """POST /pipeline/resume (per-project group resume, ResumeGroupRequest)."""
+        """POST /pipeline/resume (per-project group resume,
+        ResumeGroupRequest). Heavy timeout for the same reason as
+        pause — resume re-reads LLM config and re-enters the stage."""
         return self._unwrap(self.http.post(
             f"/projects/{pid}/pipeline/resume", json={"group": group},
+            timeout=self._HEAVY_POST_TIMEOUT_S,
         ))
+
+    def cancel_all_groups(self, pid: str, reason: str) -> list[str]:
+        """Best-effort cancel of every pipeline group with EXPLICIT
+        bodies (CancelRequest defaults group to fast_sync — the
+        empty-body wrong-target class). Used by the KeyboardInterrupt
+        handler; Op-5 made this path matter because a Ctrl-C during the
+        pause window would otherwise leave deep_enrichment/finalize
+        paused (which blocks daemon restarts AND the next rebuild).
+        Never raises; returns per-group outcome strings for logging."""
+        outcomes: list[str] = []
+        from tools.phase145_uat.invariants import GROUPS
+        for group in GROUPS:
+            try:
+                r = self.http.post(
+                    f"/projects/{pid}/pipeline/cancel",
+                    json={"group": group, "reason": reason},
+                    timeout=5.0,
+                )
+                outcomes.append(f"{group}:{r.status_code}")
+            except Exception as e:
+                outcomes.append(f"{group}:err-{type(e).__name__}")
+        return outcomes
 
     def cancel(self, pid: str) -> Any:
         return self._unwrap(self.http.post(f"/projects/{pid}/pipeline/cancel"))
@@ -856,6 +885,7 @@ def _advance_pause_actions(
     pause_fired: bool,
     resume_fired: bool,
     pause_target_available: bool,
+    polls_since_pause: int = 1,
 ) -> tuple[bool, bool, list[str]]:
     """Op-5 scheduler — decide whether the pause / resume side effect
     fires on this tick. Pure function; sibling of
@@ -869,10 +899,14 @@ def _advance_pause_actions(
         is not a pause test. May therefore fire later than scheduled;
         callers log the actual elapsed.
       - "resume" fires when `elapsed >= resume_at_secs` AND the pause
-        already fired on a PREVIOUS tick (`pause_fired` is the pre-tick
-        value) — never same-tick as its pause, so the paused state is
-        observable for at least one poll interval. Resume does not need
-        a running target (the group is paused, not running).
+        already fired on a previous tick AND at least one successful
+        status poll has observed the post-pause state
+        (`polls_since_pause >= 1`). The poll gate is the real contract:
+        loop ticks are 0.25s, so "a previous tick" alone let a
+        deferred pause resume ~0.25s later with ZERO polls (and zero
+        invariant evaluations) of the paused state — the iter proved
+        nothing about paused rendering (2026-07-22 refute pass).
+        Resume does not need a running target (the group is paused).
       - Both are at-most-once per watch. None threshold = never fire.
     """
     actions: list[str] = []
@@ -887,6 +921,7 @@ def _advance_pause_actions(
     if (resume_at_secs is not None
             and not resume_fired
             and pause_fired          # pre-tick value: never same-tick as pause
+            and polls_since_pause >= 1
             and elapsed >= resume_at_secs):
         new_resume = True
         actions.append("resume")
@@ -899,38 +934,47 @@ def _log_pause_action_failure(
     action: str,
     group: str,
     e: Exception,
-) -> None:
+) -> str:
     """Classify a failed scheduled pause/resume POST.
 
-    State rejections (group finished or resumed itself between the
-    observation tick and the post — a 2s race) and transport errors are
-    informational notes; anything else is a real error and counts.
-    Mirrors the Op-4 scheduled-update classification (§9.3 #22 B4).
+    Returns "rejected" | "transport" | "error" so the dispatch loop can
+    react (a race-rejected pause un-latches for retry).
+
+    Classification keys on the RESPONSE STATUS CODE, never on message
+    substrings: the first draft tested `"400" in str(e)`, which matches
+    the ':8400' port embedded in every httpx error URL — demoting every
+    non-2xx (daemon 500s included, exactly the product-bug class Op-5
+    exists to catch) to an informational note. 2026-07-22 refute pass.
+
+    400/409 = state rejection (group finished or resumed itself in the
+    ≤2s observation→post race) — informational. Timeouts/transport =
+    informational (the synchronous pause may still have succeeded
+    server-side). Everything else — including any other HTTP status —
+    is a real error and counts.
     """
-    msg = str(e)
-    is_state_reject = (
-        "409" in msg or "400" in msg
-        or "not running" in msg.lower()
-        or "not paused" in msg.lower()
-    )
-    if is_state_reject:
+    status_code = getattr(getattr(e, "response", None), "status_code", None)
+    if status_code in (400, 409):
         ctx.log(Event(now_wall, "note", {
             "detail": f"scheduled_{action}_rejected",
             "group": group,
-            "context": msg[:200],
+            "status_code": status_code,
+            "context": str(e)[:200],
         }))
-    elif isinstance(e, (httpx.TimeoutException, httpx.HTTPError)):
+        return "rejected"
+    if status_code is None and isinstance(e, (httpx.TimeoutException, httpx.TransportError)):
         ctx.log(Event(now_wall, "note", {
             "detail": f"scheduled_{action}_transport_error",
             "subtype": type(e).__name__,
-            "context": msg[:200],
+            "context": str(e)[:200],
         }))
-    else:
-        ctx.log(Event(now_wall, "error", {
-            "where": f"scheduled_{action}",
-            "detail": msg,
-        }))
-        ctx.summary.error_count += 1
+        return "transport"
+    ctx.log(Event(now_wall, "error", {
+        "where": f"scheduled_{action}",
+        "detail": str(e)[:400],
+        "status_code": status_code,
+    }))
+    ctx.summary.error_count += 1
+    return "error"
 
 
 def _log_unfired_pause(
@@ -1105,6 +1149,7 @@ def watch_until_idle(
     resume_fired = False
     pause_target_group: Optional[str] = None
     paused_group: Optional[str] = None
+    polls_since_pause = 0
 
     while True:
         # B3: now_mono drives all elapsed math (next_poll, idle_since,
@@ -1222,6 +1267,7 @@ def watch_until_idle(
             pause_fired=pause_fired,
             resume_fired=resume_fired,
             pause_target_available=pause_target_group is not None,
+            polls_since_pause=polls_since_pause,
         )
         for action in pause_actions:
             if action == "pause":
@@ -1233,10 +1279,25 @@ def watch_until_idle(
                     "scheduled_at_s": pause_at_secs,
                 }))
                 ctx.snap(page, "before_scheduled_pause")
+                polls_since_pause = 0
                 try:
                     api.pause(pid, group)
                 except Exception as e:
-                    _log_pause_action_failure(ctx, now_wall, "pause", group, e)
+                    cls = _log_pause_action_failure(ctx, now_wall, "pause", group, e)
+                    if cls == "rejected":
+                        # The group finished in the observation→post race;
+                        # no pause happened. Un-latch so the scheduler
+                        # retries against the next running group — or the
+                        # never-fired note surfaces at exit. A rejected
+                        # pause must never silently count as coverage.
+                        pause_fired = False
+                    else:
+                        # Transport/timeout/error: the synchronous pause
+                        # route may still have completed server-side after
+                        # the client gave up. Remember the target so the
+                        # resume aims at the right group — a resume against
+                        # a not-paused group is just a rejected note.
+                        paused_group = group
                 else:
                     paused_group = group
                     ctx.snap(page, "after_scheduled_pause")
@@ -1296,12 +1357,16 @@ def watch_until_idle(
             dom = scrape_pipeline_dom(page)
             running = is_any_running(status)
             # Op-5: remember which group (if any) is running so the next
-            # tick's pause dispatch has a target.
+            # tick's pause dispatch has a target, and count polls that
+            # have observed the post-pause state (the resume gate — see
+            # _advance_pause_actions docstring).
             pause_target_group = next(
                 (g for g, slot in _group_phase(status).items()
                  if slot.get("phase") == "running"),
                 None,
             )
+            if pause_fired:
+                polls_since_pause += 1
 
             # Phase 118 extra scrutiny — non-blocking anomaly checks. Run
             # AFTER the canonical desync detector (below) so it remains
@@ -2073,10 +2138,10 @@ def main(argv: list[str]) -> int:
                             passed = False
                     except KeyboardInterrupt:
                         print("Interrupted — cancelling active pipeline if any…", flush=True)
-                        try:
-                            api.cancel(args.project_id)
-                        except Exception:
-                            pass
+                        outcomes = api.cancel_all_groups(
+                            args.project_id, reason="smoke_keyboard_interrupt",
+                        )
+                        print(f"  cancel outcomes: {', '.join(outcomes)}", flush=True)
                         ctx.finish(False)
                         raise
                     except Exception as e:
