@@ -40,7 +40,7 @@ function Monogram() {
   }), []);
 
   return (
-    <group ref={groupRef} position={[0, 0, 0.75]}>
+    <group ref={groupRef} position={[-0.005, 0.005, 0.75]}>
       <Text
         {...config}
         ref={textRef}
