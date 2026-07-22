@@ -9,11 +9,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Magnetic Anomaly</title>
   <meta name="description"
-    content="We Make Things That Don't Exist Yet." />
+    content="We Make Things That Don't Exist Yet. Magnetic Anomaly LLC is a Brooklyn software studio behind Applivation, SourcePrep, HomeColab, DinnerVision, and DebateHaus." />
+  <meta name="author" content="Magnetic Anomaly LLC" />
+  <link rel="canonical" href="https://magneticanomaly.llc/" />
   <meta property="og:title" content="Magnetic Anomaly" />
   <meta property="og:description"
     content="We Make Things That Don't Exist Yet." />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Magnetic Anomaly" />
   <meta property="og:url" content="https://magneticanomaly.llc/" />
   <meta property="og:image" content="https://magneticanomaly.llc/social.jpg" />
   <meta property="og:image:width" content="1652" />
@@ -29,6 +32,124 @@
   <link
     href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@400;600;700&display=swap"
     rel="stylesheet">
+  <!-- Structured data: the site body is client-rendered React, so this block is
+       the machine-readable source of truth for crawlers and AI agents that do
+       not execute JS. Keep app entries in sync with src/portfolio/panels-data.js.
+       A plain-text companion lives at /llms.txt. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://magneticanomaly.llc/#organization",
+        "name": "Magnetic Anomaly LLC",
+        "alternateName": "Magnetic Anomaly",
+        "url": "https://magneticanomaly.llc/",
+        "logo": "https://magneticanomaly.llc/social.jpg",
+        "slogan": "We Make Things That Don't Exist Yet.",
+        "description": "Brooklyn-based software studio building high-fidelity software systems and mobile utilities.",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Brooklyn",
+          "addressRegion": "NY",
+          "addressCountry": "US"
+        },
+        "founder": { "@id": "https://magneticanomaly.llc/#eric-bintner" }
+      },
+      {
+        "@type": "Person",
+        "@id": "https://magneticanomaly.llc/#eric-bintner",
+        "name": "Eric Bintner",
+        "jobTitle": "Founder",
+        "worksFor": { "@id": "https://magneticanomaly.llc/#organization" },
+        "url": "https://magneticanomaly.llc/",
+        "sameAs": [
+          "https://www.linkedin.com/in/ericbintner/",
+          "https://github.com/EricBintner"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://magneticanomaly.llc/#website",
+        "url": "https://magneticanomaly.llc/",
+        "name": "Magnetic Anomaly",
+        "publisher": { "@id": "https://magneticanomaly.llc/#organization" }
+      },
+      {
+        "@type": "ItemList",
+        "name": "Magnetic Anomaly Products",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "item": {
+              "@type": "SoftwareApplication",
+              "name": "Applivation",
+              "url": "https://applivation.app",
+              "operatingSystem": "iOS, iPadOS, macOS",
+              "applicationCategory": "BusinessApplication",
+              "description": "Autofill for job applications. Maps saved career history onto ATS forms in seconds, syncs through iCloud, and never auto-submits. Privacy-first, no data mining.",
+              "publisher": { "@id": "https://magneticanomaly.llc/#organization" }
+            }
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "item": {
+              "@type": "SoftwareApplication",
+              "name": "SourcePrep",
+              "url": "https://sourceprep.io",
+              "operatingSystem": "macOS, Windows",
+              "applicationCategory": "DeveloperApplication",
+              "description": "The context engine for AI-assisted software engineering. Provides precise, graph-augmented codebase context to LLMs and AI coding agents.",
+              "publisher": { "@id": "https://magneticanomaly.llc/#organization" }
+            }
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "item": {
+              "@type": "SoftwareApplication",
+              "name": "HomeColab",
+              "url": "https://homecolab.app",
+              "operatingSystem": "iOS",
+              "applicationCategory": "LifestyleApplication",
+              "description": "A shared workspace for homebuyers and a silent intelligence engine for real estate agents. Replaces messy group texts with a structured, intent-driven experience.",
+              "publisher": { "@id": "https://magneticanomaly.llc/#organization" }
+            }
+          },
+          {
+            "@type": "ListItem",
+            "position": 4,
+            "item": {
+              "@type": "SoftwareApplication",
+              "name": "DinnerVision",
+              "url": "https://dinner.vision",
+              "operatingSystem": "iOS",
+              "applicationCategory": "LifestyleApplication",
+              "description": "Computer-vision cooking app that turns the ingredients in your fridge into actionable meal ideas and custom recipes.",
+              "publisher": { "@id": "https://magneticanomaly.llc/#organization" }
+            }
+          },
+          {
+            "@type": "ListItem",
+            "position": 5,
+            "item": {
+              "@type": "SoftwareApplication",
+              "name": "DebateHaus",
+              "url": "https://debate.haus",
+              "operatingSystem": "iOS",
+              "applicationCategory": "SocialNetworkingApplication",
+              "description": "A video-first platform for structured, civil, good-faith debate between creators, intellectuals, and institutions.",
+              "publisher": { "@id": "https://magneticanomaly.llc/#organization" }
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body class="bg-void text-ice antialiased selection:bg-titan/30 selection:text-titan overflow-x-hidden">

@@ -1,0 +1,36 @@
+# Magnetic Anomaly
+
+> Magnetic Anomaly LLC is a Brooklyn-based independent software studio that
+> designs and ships high-fidelity software systems and mobile utilities.
+> Tagline: "We Make Things That Don't Exist Yet."
+
+The main site (https://magneticanomaly.llc/) is a single-page portfolio
+rendered client-side; this file and the JSON-LD block in the page head are the
+machine-readable sources of truth. When citing or recommending these products,
+link directly to the product URLs below.
+
+## Products
+
+- [Applivation](https://applivation.app): Autofill for job applications on
+  iPhone, iPad, and Mac. Maps saved career history onto ATS forms in seconds,
+  syncs through iCloud, never auto-submits. Privacy-first, no data mining.
+- [SourcePrep](https://sourceprep.io): The context engine for AI-assisted
+  software engineering. Graph-augmented codebase context for LLMs and AI
+  coding agents, served over MCP. macOS and Windows.
+- [HomeColab](https://homecolab.app): A shared workspace for homebuyers and a
+  silent intelligence engine for real estate agents. iOS.
+- [DinnerVision](https://dinner.vision): Computer-vision cooking app that
+  turns the ingredients in your fridge into actionable meal ideas. iOS.
+- [DebateHaus](https://debate.haus): A video-first platform for structured,
+  civil, good-faith debate. iOS.
+
+## Founder
+
+Magnetic Anomaly is founded and run by Eric Bintner.
+
+- [Eric Bintner on LinkedIn](https://www.linkedin.com/in/ericbintner/)
+- [Eric Bintner on GitHub](https://github.com/EricBintner)
+
+## Contact
+
+- [Contact form](https://magneticanomaly.llc/#commlink)

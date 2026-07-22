@@ -1,0 +1,10 @@
+# magneticanomaly.llc
+# All crawlers welcome, including AI agents (GPTBot, ClaudeBot, PerplexityBot,
+# Google-Extended, etc.). A structured plain-text summary of this site lives at
+# https://magneticanomaly.llc/llms.txt
+
+User-agent: *
+Allow: /
+Disallow: /logo-generator/
+
+Sitemap: https://magneticanomaly.llc/sitemap.xml
