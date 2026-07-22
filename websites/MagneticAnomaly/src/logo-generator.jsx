@@ -13,8 +13,8 @@ function LogoGenerator() {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#030305]">
-      <header className="pointer-events-none fixed top-0 w-full z-20 pt-[max(2rem,env(safe-area-inset-top))] pb-8">
-        <div className="max-w-7xl mx-auto px-6 relative flex items-center h-8 justify-center">
+      <header className="pointer-events-none fixed top-0 left-0 right-0 z-20 pt-[max(2rem,env(safe-area-inset-top))] pb-8">
+        <div className="max-w-7xl mx-auto px-6 relative flex items-center h-8">
           <h1 className="absolute whitespace-nowrap w-max top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 font-sans font-bold text-[1rem] sm:text-xl tracking-widest text-ice">
             MAGNETIC ANOMALY
           </h1>
