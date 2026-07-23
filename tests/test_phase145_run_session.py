@@ -3448,3 +3448,107 @@ class TestPauseOpScrutinyFixes:
 
         helper = inspect.getsource(ps.Api.cancel_all_groups)
         assert '"group"' in helper and '"reason"' in helper
+
+
+class TestOrphanedBarrierDefenses:
+    """Defenses against FINDING_force-from-start-rebuild-hangs-pre-
+    registration-orphans-all-barrier (2026-07-22).
+
+    An orphaned all-scope .reset_barrier silently no-ops every rebuild
+    (subsumption check) while the API stays healthy — so without these
+    checks a wedged project turns an overnight campaign into a
+    false-pass factory: POST /rebuild appears to work, nothing runs,
+    watch_until_idle's no_activity branch scores the iter as PASS.
+
+    D1: run_session detects the orphan (barrier.active with every group
+    terminal) before each iter and aborts the session with rc=4 — the
+    barrier never self-clears, so continuing means every remaining iter
+    is wasted.
+    D2: a forced build (rebuild/initial) that produces zero activity is
+    an ERROR, not a no-op pass.
+    """
+
+    def _fake_status(self, monkeypatch, payload):
+        import tools.phase145_uat.run_session as rs
+
+        class FakeResp:
+            status_code = 200
+
+            def json(self):
+                return {"success": True, "data": payload}
+
+        monkeypatch.setattr(rs.httpx, "get", lambda url, **kw: FakeResp())
+
+    def test_orphaned_barrier_detected_when_active_and_all_terminal(self, monkeypatch):
+        import tools.phase145_uat.run_session as rs
+
+        self._fake_status(monkeypatch, {
+            "barrier": {"active": True, "scope": "all", "age_seconds": 1234, "reason": "rebuild"},
+            "fast_sync": {"phase": "completed"},
+            "deep_enrichment": {"phase": "idle"},
+            "finalize": None,
+        })
+        orphan = rs.orphaned_barrier_state("http://x", "pid")
+        assert orphan is not None
+        assert orphan["scope"] == "all"
+        assert orphan["age_seconds"] == 1234
+
+    def test_live_run_legitimately_holds_barrier(self, monkeypatch):
+        import tools.phase145_uat.run_session as rs
+
+        self._fake_status(monkeypatch, {
+            "barrier": {"active": True, "scope": "all", "age_seconds": 10, "reason": "rebuild"},
+            "fast_sync": {"phase": "running"},
+            "deep_enrichment": {"phase": "queued"},
+            "finalize": {"phase": "idle"},
+        })
+        assert rs.orphaned_barrier_state("http://x", "pid") is None
+
+    def test_inactive_barrier_is_healthy(self, monkeypatch):
+        import tools.phase145_uat.run_session as rs
+
+        self._fake_status(monkeypatch, {
+            "barrier": {"active": False},
+            "fast_sync": {"phase": "completed"},
+        })
+        assert rs.orphaned_barrier_state("http://x", "pid") is None
+
+    def test_unreachable_daemon_returns_none(self, monkeypatch):
+        import tools.phase145_uat.run_session as rs
+
+        def boom(url, **kw):
+            raise OSError("connection refused")
+
+        monkeypatch.setattr(rs.httpx, "get", boom)
+        assert rs.orphaned_barrier_state("http://127.0.0.1:1", "pid") is None
+
+    def test_main_gates_iters_on_orphaned_barrier_and_aborts_rc4(self):
+        import inspect
+
+        import tools.phase145_uat.run_session as rs
+
+        src = inspect.getsource(rs.main)
+        assert "orphaned_barrier_state(" in src, (
+            "D1: every iter must be gated on the orphan check — the wedge "
+            "makes rebuilds silently no-op while /health stays green"
+        )
+        assert "return 4" in src, (
+            "D1: an orphaned barrier aborts the session with a distinct "
+            "exit code (the barrier never self-clears; retrying is waste)"
+        )
+
+    def test_forced_build_no_activity_is_error(self):
+        import inspect
+
+        import tools.playwright_smoke as ps
+
+        watch_src = inspect.getsource(ps.watch_until_idle)
+        assert "expect_activity" in watch_src
+        assert "no_activity_after_forced_build" in watch_src, (
+            "D2: zero activity after a forced rebuild is the orphaned-"
+            "barrier silent-block signature and must be an error"
+        )
+        assert "expect_activity=True" in inspect.getsource(ps.run_rebuild)
+        assert "expect_activity=True" in inspect.getsource(ps.run_initial)
+        # Incremental legitimately no-ops; it must NOT set the flag.
+        assert "expect_activity" not in inspect.getsource(ps.run_incremental)

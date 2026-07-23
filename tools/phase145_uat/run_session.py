@@ -279,6 +279,51 @@ _CANCELLABLE_PHASES: frozenset[str] = frozenset({
 })
 
 
+def orphaned_barrier_state(api_url: str, project_id: str) -> Optional[dict[str, Any]]:
+    """Detect the orphaned-reset-barrier wedge: `barrier.active` while
+    EVERY group is in a terminal phase — no run in flight to justify it.
+
+    Per FINDING_force-from-start-rebuild-hangs-pre-registration-orphans-
+    all-barrier: a rebuild that hangs pre-registration orphans an
+    `all`-scope barrier that survives daemon restarts and makes every
+    subsequent rebuild silently no-op (subsumption check) while /health
+    stays green. From the harness's view the API looks healthy and a
+    "rebuild" produces zero activity — without this gate the session
+    would happily record false passes all night.
+
+    Returns the barrier info dict when orphaned; None when healthy,
+    when a live run legitimately holds the barrier, or when the daemon
+    is unreachable (the health probes own that case). MUST NOT raise.
+    """
+    try:
+        r = httpx.get(
+            f"{api_url.rstrip('/')}/projects/{project_id}/pipeline/status",
+            timeout=5.0,
+        )
+        if r.status_code != 200:
+            return None
+        body = r.json()
+        payload = body.get("data") if isinstance(body, dict) and "data" in body else body
+        if not isinstance(payload, dict):
+            return None
+        barrier = payload.get("barrier")
+        if not isinstance(barrier, dict) or not barrier.get("active"):
+            return None
+        for g in GROUPS:
+            grp = payload.get(g)
+            if isinstance(grp, dict):
+                phase = grp.get("phase")
+                if isinstance(phase, str) and phase not in _TERMINAL_PHASES:
+                    return None  # live run — the barrier is doing its job
+        return {
+            "scope": barrier.get("scope"),
+            "age_seconds": barrier.get("age_seconds"),
+            "reason": barrier.get("reason"),
+        }
+    except Exception:
+        return None
+
+
 def _pipeline_snapshot(api_url: str, project_id: str) -> dict[str, str]:
     """Return `{group_name: phase}` for the three top-level pipeline groups.
 
@@ -1156,6 +1201,7 @@ def main(argv: list[str]) -> int:
         )
         return 3
 
+    aborted_orphan = False
     for op in selected:
         for iter_num in range(1, args.iterations + 1):
             if is_completed(manifest, op.id, iter_num):
@@ -1180,6 +1226,34 @@ def main(argv: list[str]) -> int:
                 ))
                 persist_manifest(manifest, manifest_path)
                 continue
+
+            # D1 — orphaned-barrier gate (FINDING_force-from-start-rebuild-
+            # hangs-pre-registration-orphans-all-barrier): an orphaned
+            # all-scope barrier makes every rebuild silently no-op while
+            # /health stays green, and it NEVER self-clears. Abort the whole
+            # session rather than record a night of false results.
+            orphan = orphaned_barrier_state(args.api_url, args.project_id)
+            if orphan is not None:
+                note = (
+                    f"orphaned reset barrier (scope={orphan['scope']}, "
+                    f"age={orphan['age_seconds']}s, reason={orphan['reason']}) — "
+                    "rebuilds silently blocked (FINDING_force-from-start-rebuild-hangs). "
+                    "Session ABORTED; recover per finding §12 (rm .reset_barrier + "
+                    "daemon restart — restart is GATED, see uat-orchestrator rule 1) "
+                    "then re-run with --resume."
+                )
+                print(f"  {note}", flush=True)
+                manifest.completed.append(IterResult(
+                    op_id=op.id,
+                    iter_num=iter_num,
+                    run_dir="",
+                    status="skipped",
+                    invariants={k: True for k in SHIPPED_INVARIANTS},
+                    notes=_clip_notes(note),
+                ))
+                persist_manifest(manifest, manifest_path)
+                aborted_orphan = True
+                break
 
             # §9.3 #5 — per-iter capture file so an unattended operator (or
             # an orchestrating agent) can tail live progress mid-iter.
@@ -1241,11 +1315,17 @@ def main(argv: list[str]) -> int:
                 persist_manifest(manifest, manifest_path)
 
             time.sleep(args.inter_iter_pause)
+        if aborted_orphan:
+            break
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(render_scorecard(manifest))
     print(f"\nSCORECARD → {output_path}", flush=True)
     print(f"manifest  → {manifest_path}", flush=True)
+    if aborted_orphan:
+        # Distinct exit code so an orchestrating agent can tell "wedged
+        # daemon, needs §12 recovery" apart from ordinary failures.
+        return 4
     return 0
 
 

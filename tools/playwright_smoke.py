@@ -1059,8 +1059,17 @@ def watch_until_idle(
     resume_at_secs: Optional[float] = None,
     project_name: Optional[str] = None,
     budget_raisable: bool = True,
+    expect_activity: bool = False,
 ) -> bool:
     """Poll + scrape + diff until no pipeline group is running (or timeout).
+
+    expect_activity=True (forced builds: rebuild / initial): observing
+    ZERO pipeline activity for the whole grace window is an ERROR, not a
+    benign no-op — a force_from_start that produces nothing is the
+    orphaned-reset-barrier silent-block signature
+    (FINDING_force-from-start-rebuild-hangs-pre-registration-orphans-
+    all-barrier). Incremental watches keep the default False: an
+    up-to-date project legitimately no-ops.
 
     Desync rules (all per-stage):
         - api says running + dom says not-running → desync
@@ -1505,8 +1514,25 @@ def watch_until_idle(
 
             # If we never saw a running state and it's been >startup_grace_seconds,
             # treat that as a no-op run (e.g., incremental with nothing to do) —
-            # not a failure.
+            # not a failure. UNLESS the caller forced a build (D2): a rebuild
+            # that produces zero activity is the orphaned-barrier silent-block
+            # outage, and scoring it as a pass would let a wedged daemon farm
+            # false-passes for the rest of an unattended campaign.
             if not saw_running and elapsed > startup_grace_seconds * 2 and not running:
+                if expect_activity:
+                    ctx.log(Event(now_wall, "error", {
+                        "where": "no_activity_after_forced_build",
+                        "detail": (
+                            "forced rebuild produced no pipeline activity — "
+                            "likely silently blocked (orphaned reset barrier "
+                            "subsumption; see FINDING_force-from-start-rebuild-"
+                            "hangs-pre-registration-orphans-all-barrier)"
+                        ),
+                        "elapsed_s": round(elapsed, 1),
+                    }))
+                    ctx.summary.error_count += 1
+                    ctx.snap(page, "no_activity_unexpected")
+                    return False
                 ctx.log(Event(now_wall, "note", {"detail": "no_activity_observed", "elapsed_s": round(elapsed, 1)}))
                 ctx.snap(page, "no_activity")
                 _log_unfired_pause(ctx, now_wall, pause_at_secs=pause_at_secs,
@@ -1657,7 +1683,10 @@ def run_initial(api: Api, page: Page, pid: str, ctx: RunContext, repo_path: Path
         ctx.summary.error_count += 1
         return False
 
-    return watch_until_idle(api, page, pid, ctx, max_seconds=60 * 60, repo_path=repo_path)
+    # A destroy + full build MUST produce activity; silence is the
+    # orphaned-barrier block signature (D2).
+    return watch_until_idle(api, page, pid, ctx, max_seconds=60 * 60, repo_path=repo_path,
+                            expect_activity=True)
 
 
 def run_incremental(repo_path: Path, api: Api, page: Page, pid: str, ctx: RunContext) -> bool:
@@ -1732,6 +1761,7 @@ def run_rebuild(
         pause_at_secs=pause_at_secs,
         resume_at_secs=resume_at_secs,
         project_name=project_name,
+        expect_activity=True,
     )
 
 

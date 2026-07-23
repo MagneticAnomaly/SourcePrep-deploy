@@ -25,6 +25,8 @@ curl -s localhost:8400/health | jq .status               # "ok" — if daemon is
 curl -sI localhost:5174 | head -1                         # 200 — if dead, dashboard-only restart (rule 1)
 curl -s localhost:8400/projects | jq '.data.projects[] | {id,name,path}'   # re-confirm IDs live — never trust cached IDs
 curl -s localhost:8400/system/pipeline-queue | jq         # paused/active anywhere → rules 1 & 3
+curl -s localhost:8400/projects/<pid>/pipeline/status | jq '.data.barrier'  # per target: active barrier + nothing running = the §2v wedge — recover BEFORE the campaign
+ps -o etime= -p "$(pgrep -f 'prep.cli serve' | head -1)"  # daemon age — §2v wedge risk grows with uptime
 git -C <target-repo> status --short                       # record, don't mutate (rule 2)
 pgrep -f tools.phase145_uat.run_session                   # must be empty (rule 4)
 df -g /Volumes/4TB-BAD | tail -1                          # < 20 GB free → stop condition
@@ -32,6 +34,8 @@ caffeinate -is &                                          # overnight campaigns:
 ```
 
 Always `.venv/bin/python` (never system python).
+
+**Daemon freshness (§2v wedge).** `FINDING_force-from-start-rebuild-hangs-pre-registration-orphans-all-barrier`: on a daemon with hours of accumulated uptime (~8h observed), a rebuild can hang pre-registration and orphan an `all`-scope `.reset_barrier` that **survives restart** and silently no-ops every later rebuild. Before a long campaign, if the queue shows no active AND no paused work, a fresh daemon restart is permitted by rule 1 and **recommended** (also reclaims embedder RSS); confirm no `.sourceprep/.reset_barrier` exists on any target at boot (finding §11.3 — the file must be absent when the daemon starts). The harness defends mid-campaign: `run_session` aborts with **rc=4** when it detects an orphaned barrier, and a forced build that produces zero activity logs `no_activity_after_forced_build` as an error instead of a false pass.
 
 ## Repo roster (campaign set per Eric, 2026-07-22 — his dashboard-active projects)
 
@@ -88,6 +92,7 @@ Scorecards + manifests go in `docs/Phase145_Pipeline-UI-Reliability/`; screensho
 - Two sessions dominated by `error×N 'timed out'` while `/health` stays ok → daemon-stall family (§2m). **First check for a sleep artifact:** a burst of simultaneous timeouts right after a gap in log timestamps means the Mac slept (caffeinate died?), not a daemon stall.
 - A session dominated by ERR/skip of any single signature → re-run the full pre-flight (a dead dashboard produces exactly this) before scheduling anything else.
 - LLM-failure signatures in daemon logs (repeated cloud errors, stages failing fast) → credits/limits exhausted; stop burning iterations, note Phase 148 (global LLM pause is unbuilt).
+- **run_session exits rc=4** (orphaned-barrier abort), or rebuild POSTs hang while `barrier.active=true` with nothing running → the §2v pre-registration wedge. Recovery is finding §12 (`rm .sourceprep/.reset_barrier` + daemon restart) — the restart is rule-1 gated, so unattended: stop, report, cite the finding with the daemon's uptime (each occurrence is a time-to-wedge datapoint the proposal needs). Never `--retry-non-pass` through rc=4.
 - `/pipeline/status` 500, journal-vs-state-machine disagreement, selfheal resurrecting fresh stages → pipeline-testing §8 red flags; evidence-capture mode.
 - Disk: < 20 GB free on the data volume → stop (the daemon's SQLite state shares it; filling it risks index corruption, not just lost screenshots).
 - Any queue entry newly paused/held that you didn't cause → hands off, report.
