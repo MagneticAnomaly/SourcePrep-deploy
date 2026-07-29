@@ -45,27 +45,49 @@ one bad.
 
 ### The good: worktree/build duplication is already excluded
 
-ApplicationBrowser keeps ~10 concurrent `git worktree`s under
+ApplicationBrowser keeps **14** concurrent `git worktree`s under
 `.claude/worktrees/`, each a full checkout. That duplicates the entire
 `docs/` tree:
 
 ```
-real repo (docs/ + .claude/plans + .claude/agents):   871 .md
-inside .claude/worktrees/*:                         10,212 .md   (~12×)
+inside .claude/worktrees/*:   10,212 .md   (~12× the real docs/ tree)
 ```
 
-The atlas reports **804 markdown** — the delta (871 − ~67 =
-`CLAUDE.md`/`AGENTS.md`/`.claude/plans/*` file excludes) confirms the
-10,212 worktree files are **not** indexed. The `**/.claude/**` exclude
-(`lib.rs:142`) and the `ignore` crate's `.gitignore` respect
-(`WalkConfig.respect_gitignore`, `lib.rs:50`) are doing their job.
-**No action needed here.**
+These are **not** indexed. Two independent mechanisms exclude them:
+the hard `**/.claude/**` exclude glob (`lib.rs:142`) **and** the
+`ignore` crate's `.gitignore` respect (`WalkConfig.respect_gitignore`,
+`lib.rs:50`) — the repo's `.gitignore` has `.claude/*`. **No action
+needed here.**
 
-### The bad: checked-in process artifacts are indexed at full weight
+> **Numbers note (scrutiny 2026-07-29).** An earlier draft of this
+> section reconciled an "atlas 804 vs 871 checked-in .md, delta ~67"
+> figure. That math was wrong and has been removed:
+> - The 871 counted `docs/` **+ `.claude/plans` + `.claude/agents`**,
+>   but the latter two (17 `.md`) are *excluded* by `**/.claude/**` —
+>   they are not indexed, so they don't belong in the numerator.
+> - On disk (excluding worktrees + DerivedData) there are actually
+>   **1,762** `.md`: `docs/` 858, **`web/` 837** (generated
+>   design-system docs), `eval/` 23, `Packages/` 14, `.claude/` 18,
+>   `.sourceprep/` 6, root 5. The atlas's "804 markdown" is a
+>   **2026-07-28 snapshot** of a *different population* (it reports
+>   `web` as 54 files total, i.e. ~837 `web/` md are already excluded
+>   as generated/gitignored content). So 804 is neither current nor a
+>   simple subset of 871; don't use it for arithmetic.
+>
+> The qualitative claim below rests on `docs/` (858 tracked `.md`,
+> fully tracked, not gitignored), not on the stale atlas count.
 
-All 871 checked-in `.md` are indexed uniformly as "Documentation"
-(`repo_profile.py:243`). That includes a large volume of *process*
-docs that are snapshotted context for a past session — high token
+### The bad: tracked process artifacts under docs/ are indexed at full weight
+
+The **858 tracked `.md` under `docs/`** are indexed uniformly as
+"Documentation" (`repo_profile.py:243`) — no per-doc tier or
+down-weight exists in retrieval today (verified: see "Verified
+against the code" below). Much throwaway `.md` is *already* filtered
+elsewhere by `.gitignore` (the 837 generated `web/` docs, the
+`.claude/` plans, `.sourceprep/`), so the unhandled gap is
+specifically **tracked** process docs that users commit into `docs/`.
+Within that 858, ~56 handoff-named files + ~19 starter-prompt files
+are git-tracked — snapshotted context for a past session, high token
 cost, low durable signal:
 
 - `docs/superpowers/starter-prompts/2026-07-2*-*handoff-*.md` (per-session launch prompts)
@@ -74,21 +96,30 @@ cost, low durable signal:
 - per-phase `*_handoff*.md`, dated `YYYY-MM-DD-*-starter-prompt.md`
 
 These sit beside `docs/Phase00_plans/00-design-spec-draft.md` (the
-locked source of truth) as peers. Observed consequences:
+locked source of truth) as peers. Expected consequences (mechanisms
+#1–#3 are plausible and worth measuring before claiming them proven;
+#4 is certain):
 
 1. **Retrieval dilution.** `prep_search` for an architecture question
    can surface `2026-07-29-handoff-E-post-laneB.md` ahead of the design
    spec. A handoff is past-session context; it should not compete with
-   durable docs in the default pool.
+   durable docs in the default pool. *(Plausible — docs are confirmed
+   in the retrieval corpus, see below — but not yet measured as an
+   actual mis-rank.)*
 2. **Atlas skew.** "Top docs per module" links planning docs to
    modules; handoffs/starter prompts get linked too, so a module's
    "why" surfaces ephemeral process instead of the ratified spec.
-3. **Doc-graph noise.** Handoffs cite many specs (high out-degree) but
-   nothing cites them back (in-degree ≈ 0) — leaves that look like
-   hubs — and doc-to-doc back-references inflate the cycle/noise count.
-4. **Not a code-graph problem.** Trace/impact operate on Swift symbols,
-   which are clean. The blast radius is retrieval + atlas ranking, not
-   structural correctness.
+   *(Plausible; the md→code link map is `atlas_markdown_links.json`,
+   Phase 124 T2 — handoffs/starter prompts would appear in it.)*
+3. **Doc-graph noise (hypothesis).** Handoffs cite many specs (high
+   out-degree) but nothing cites them back (in-degree ≈ 0) — leaves
+   that look like hubs — and doc-to-doc back-references may inflate
+   the cycle/noise count. *(Unverified — the link map records md→code
+   links; md↔md in-degree was not checked. Treat as a hypothesis to
+   test, not a finding.)*
+4. **Not a code-graph problem (certain).** Trace/impact operate on
+   Swift symbols, which are clean. The blast radius is retrieval +
+   atlas ranking, not structural correctness.
 
 ### The general pattern (not just this user)
 
@@ -104,10 +135,70 @@ of process artifacts, and users commit them into `docs/`:
 | General | TODO snapshots, scrutiny-wave notes, dated plan bundles |
 
 CoDRAG already excludes the *config* instances (the dot-dirs + rule
-files). The gap is the **checked-in process docs that live outside
-those dirs** — and CoDRAG's own repo is a test case: it has a root
+files). The gap is the **tracked process docs that live outside those
+dirs** — and CoDRAG's own repo is a test case: it has a root
 `HANDOFF.md`. So this is a cross-tool, generalizable ingestion-quality
 problem, not a single repo's hygiene.
+
+## Verified against the code (2026-07-29 scrutiny)
+
+Every CoDRAG-side claim this doc leans on was checked against the
+source (all TRUE, with caveats):
+
+1. **Named scopes exist and work as opt-in retrieval filters (Phase 120).**
+   `scope` is a param on `prep`/`prep_search`/`prep_impact`/`prep_concepts`/`prep_observe`
+   (`mcp_tools.py:70-76…459-465`), threaded through `mcp/server.py`,
+   resolved by `core/scope_resolver.py:22-54` (`resolve_mask`), and a
+   `ScopeRecord` carries arbitrary `paths: list[str]`
+   (`core/scope_store.py:13-36`). A new `process` scope holding a
+   subset of docs is creatable today; `prep_search(scope="process")`
+   would then bound retrieval to exactly those paths. **Direction B/C's
+   opt-in scope is not new infrastructure — it reuses Phase 120.**
+2. **The walker exclude list is parity-pinned.** `tests/test_walker_parity.py`
+   asserts every Python `DEFAULT_EXCLUDE_*` glob appears in the Rust
+   walker (`:51-64`, one-way: Python ⊆ Rust), plus self-ingestion
+   guards and leak-culprit globs. **Any change to excludes needs a
+   matching parity assertion** — and a tier/pool change wants an
+   equivalent "what's in the default pool" regression + a
+   false-positive guard (the `00-design-spec-draft.md` "draft" case
+   must stay durable).
+3. **No doc down-weighting exists today — but there *is* a filename-specific
+   doc up-weight precedent.** The retrieval scoring path
+   (`core/index.py` `search()` `:1144-1273`) applies keyword/fts/path/
+   structural/primer/segment/role/intent boosts; `is_doc` (`:504`) is
+   used only for stats and to pick `chunk_markdown` vs `chunk_code`
+   (`:574-577`), never as a score modifier. **Caveat:** `_primer_boosts`
+   (`:2091-2115`) gives +0.25 (cap 0.50) to root-level `AGENTS.md` /
+   `PREP_PRIMER.md` / `PROJECT_PRIMER.md`. That is class-specific and
+   *up*-weights, so "no doc down-weighting" holds — but a future
+   down-weight is the symmetric counterpart to an existing pattern,
+   not a wholly new kind of logic.
+4. **Per-file git history is already captured (the churn signal is free).**
+   `core/git_evidence.py` (Phase 105) exposes `FileChurn` (commits,
+   first/last_seen, authors, lines ±) via `recent_churn_by_file(window_days)`,
+   cached in-memory + on disk (`:140-178`), and `classify_hub`
+   (`:296-314`) already derives `stable`/`evolving`/`fragile`/`unknown`
+   labels from it. **Caveat:** `commits` is commits *within the window*
+   (default 60 days, `:132`), not lifetime churn. A classifier can
+   reuse `recent_churn_by_file()` directly; lifetime count needs a
+   wider window or one extra git call.
+5. **Walker hard-exclude overrides `.gitignore` re-includes — a real trap.**
+   `exclude_globs` become negated overrides applied *on top of* the
+   gitignore layer (`lib.rs:215-220`, each glob rewritten `!{glob}`;
+   corroborated by `test_walker_parity.py:145-147`). A repo's
+   `.gitignore` `!.claude/agents/` does **not** re-include
+   `.claude/agents/` — the hard `**/.claude/**` wins. **Implication:
+   if we ever want `.claude/plans/`-style paths in a `process` scope,
+   that requires removing them from the hard `exclude_globs`, not a
+   `.gitignore` `!` rule.** Faux-archive must not assume gitignore can
+   punch back in under a hard exclude.
+6. **Docs are already in the semantic retrieval corpus.** `_DOC_EXTS`
+   (`core/index.py:174`), markdown chunked via `chunk_markdown`
+   (`:574-575`) into the **same** `docs`/`vectors` arrays as code
+   (`:564-565`), ranked by the same `search()` scoring over the whole
+   embedding matrix. **"Down-weight docs in retrieval" builds on an
+   existing capability** — it's a new modifier keyed on
+   `is_doc`/`_DOC_EXTS`, with no pool partition to retrofit.
 
 ## Candidate directions (not decided)
 
@@ -151,8 +242,8 @@ sufficient**):
 | **Filename** | `*handoff*`, `*starter*`, `*STARTER_PROMPT*`, `YYYY-MM-DD-*` | weak alone | `00-design-spec-draft.md` contains "draft" but is the locked truth → false-positive risk |
 | **Path** | `docs/handoffs/`, `*/starter-prompts/`, `*/plans/*HANDOFF*` | medium | strong when the repo self-organizes; weak when flat |
 | **Content** | "You are continuing a session", "Starter prompt", merge-SHA + branch + worktree-name density | strong | boilerplate the tools emit reliably |
-| **Graph** (CoDRAG's edge) | high out-degree, ≈0 in-degree from code/durable docs | strong | **only a structural indexer sees this** — the moat |
-| **Git churn** | 1 commit, never edited after creation, recent | strong | `git log --follow`; throwaway docs are write-once |
+| **Graph** (CoDRAG's edge) | high out-degree, ≈0 in-degree from code/durable docs | strong (if it holds) | **only a structural indexer sees this** — the moat. **Unverified for md↔md:** the link map is md→code (Phase 124 T2); md-to-md in-degree was not measured. Must be validated before leaning on it. |
+| **Git churn** | 1 commit, never edited after creation, recent | strong | **Already available** — `core/git_evidence.py` `FileChurn` via `recent_churn_by_file()`; `classify_hub` already labels `stable`/`evolving`/`fragile`. **Windowed (default 60d), not lifetime** — widen the window or add one git call for all-time count. |
 
 **Why tiering, not a hard exclude:** hard-excluding checked-in files
 is dangerous (the "draft" false-positive above). Down-weighting + an
@@ -210,8 +301,36 @@ default pool, it feels like silent data loss. Needs a visible
    rules files into tracked-pointer + gitignored-volatile. The
    volatile half is conceptually the same "generated content shouldn't
    be durable" theme — but Phase 147 is about *SourcePrep's own
-   generated files*, this phase is about *user/agent-generated checked-in
+   generated files*, this phase is about *user/agent-generated tracked
    docs*. Adjacent, not overlapping.
+8. **Target population: tracked docs, not all throwaway md.** Much
+   throwaway md is *already* filtered by `.gitignore` (ApplicationBrowser's
+   837 generated `web/` docs, `.claude/` plans, `.sourceprep/`). The
+   gap is specifically **tracked** process docs under `docs/`. `web/`
+   is a second throwaway family (generated design-system docs) worth
+   naming, but it's already handled here — don't re-filter what
+   gitignore already drops. Confirm the classifier operates on the
+   indexed (tracked, non-excluded) set, not the raw on-disk set.
+9. **Faux-archive re-include trap.** Walker hard-excludes override
+   `.gitignore` re-includes (verified, `lib.rs:215-220`). So faux-archive
+   cannot rely on gitignore to punch a path back into a `process` scope
+   if that path sits under a hard-excluded dir (e.g. `.claude/plans/`).
+   Re-including such paths means editing `exclude_globs`, not a
+   `.gitignore` `!` rule. Design the scope membership as an explicit
+   path list, not a gitignore inversion.
+10. **Down-weight as the symmetric counterpart to an existing boost.**
+    `_primer_boosts` already up-weights three root primer files in
+    `search()` (`core/index.py:2091-2115`). A `process` down-weight is
+    the same kind of filename/class-keyed modifier — lower-risk than
+    "net-new logic," and it should slot into the same boost-application
+    site (`:1218`) rather than a parallel path.
+11. **Classifier-feeding-archive (Direction A').** The classifier can
+    *serve* Direction A, not just B/C: SourcePrep surfaces "N docs look
+    like process artifacts — archive them?" and the user accepts a
+    `git mv` to a gitignored `archive/`. This is archive-as-a-feature
+    (the user's "archive should be important" emphasis) rather than
+    archive-as-discipline. Decide whether A is guidance-only or ships
+    a one-click archive driven by the same classifier.
 
 ## Non-goals
 
@@ -224,7 +343,14 @@ default pool, it feels like silent data loss. Needs a visible
 
 ## Next step
 
-A brainstorm/design pass to pick among B/C (and whether A is just
-guidance), define the durable bootstrap set, and decide score-vs-label
-and default-on-vs-opt-in before any code. No implementation in this
-phase yet.
+A brainstorm/design pass to pick among B/C (and whether A is
+guidance-only or ships a classifier-driven one-click archive — A'),
+define the durable bootstrap set, and decide score-vs-label and
+default-on-vs-opt-in before any code. The verification above de-risks
+the pass: the opt-in scope (Phase 120), the retrieval modifier site
+(`core/index.py:1218`), and the churn signal (`core/git_evidence.py`)
+all already exist, so B/C are additive — not greenfield. The two
+things still to *prove* (not assume) before committing: (a) the
+md↔md graph in-degree hypothesis (#3 / signal table), and (b) an
+actual mis-rank in `prep_search` where a handoff beats the spec (#1).
+No implementation in this phase yet.
