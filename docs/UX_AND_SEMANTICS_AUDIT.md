@@ -1,31 +1,31 @@
-# SourcePrep UI Semantics & UX Audit Report (Revised)
+# SourcePrep UI Semantics & UX Audit Report (Deep Scrutiny & Reverse-Engineered)
 
 **Date:** August 20, 2026  
 **Target System:** SourcePrep Dashboard & Component Library (`packages/ui`, `src/config/panelRegistry.ts`, `tools/playwright_smoke.py`, `tools/phase145_uat`)  
-**Scope:** Brand-Aligned Semantics, Panel Headlines & Descriptions, Active vs. Legacy Inventory, Progressive Disclosure (Clean vs. Expanded States), and Playwright QA Harness Verification.
+**Scope:** Foundational Epistemic Semantics, Panel Registry Audit (Active vs. Sunsetted), Progressive Disclosure Architecture, DOM Contracts, and Playwright UAT Harness Invariants.
 
 ---
 
 ## 1. Executive Summary & Foundational Principles
 
-SourcePrep is built on a clear, core premise: **giving AI agents and developers deep, structured epistemic context before they make changes.** Unlike shallow keyword matching (grep) or ungrounded vector search, SourcePrep constructs a multi-layered epistemic code graph using Rust parsers, inference passes, continuous graph deepening, and architectural concept synthesis.
+SourcePrep is architected around a non-negotiable core principle: **delivering deep, structured epistemic context to AI coding agents before they touch code.** Unlike ungrounded keyword matching (grep) or shallow vector similarity, SourcePrep builds a multi-layered epistemic code graph using native Rust parsers, reference inference, continuous graph deepening, and architectural concept synthesis.
 
-This audit addresses two interrelated UX challenges:
-1. **Surfacing Deep Intelligence Without Cognitive Overload:** The dashboard must communicate instantly to a user: **"Is my project indexed, healthy, and ready for my AI assistant?"** Power users and builders still need rapid access to stage timings, provenance hashes, and concurrency telemetry, but this must be delivered via **clean progressive disclosure**, not through overwhelming default screens or clunky "mode switches."
-2. **Clarifying Panel Headlines & Retiring Legacy Surfaces:** The codebase has evolved across multiple phases. Several legacy panels (*Spaghetti Finder*, *Health Scanner*, *Advisor*, *Goalposts*, *AI Gateway summary card*) have been sunset or merged into unified components (*Opportunities*, *Roadmap*, *Sidebar AI Gateway*). We must ensure all active panel headlines and descriptions are crisp, purposeful, and free of outdated artifacts.
+This deep audit scrutinizes every active user-facing UI component, panel title, and microcopy string to ensure:
+1. **Epistemic Context is Celebrated & Clear:** Epistemic reasoning, epistemic confidence, and epistemic graph layers are preserved as the core brand and functional USP.
+2. **Progressive Disclosure Replaces Cognitive Overload:** Rather than forcing users into overwhelming 15-stage waterfalls or introducing artificial "verbose mode" toggles, the UI uses **clean, native progressive disclosure**: calm, scannable default group summaries that expand inline on click.
+3. **Legacy / Sunsetted Panels are Quarantined:** Past experimental panels (*Spaghetti Finder*, *Health Scanner*, *Advisor*, *Goalposts*, *AI Gateway summary card*) are strictly segregated from the 19 active production panels.
+4. **Zero Regressions on Playwright UAT Contracts:** All `data-testid`, `data-stage-state`, `data-stage-progress`, and invariant checks ($I_1$ to $I_{15}$) remain 100% backward-compatible.
 
 ---
 
-## 2. Active vs. Legacy Panel Inventory
+## 2. Reverse-Engineered Panel Inventory (Active vs. Legacy)
 
-A key priority of this audit is separating **active production panels** from **deprecated/sunsetted experimental panels** that linger in older documentation or dev-only flags.
-
-### 2.1 Panel Status Breakdown
+A thorough code audit of [`packages/ui/src/config/panelRegistry.ts`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui/src/config/panelRegistry.ts) and [`packages/ui/src/stories/dashboard/FullDashboard.stories.tsx`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui/src/stories/dashboard/FullDashboard.stories.tsx) confirms which panels are actively wired versus sunsetted in past phases.
 
 ```
 SourcePrep Panel Architecture
-├── Active Production Panels (Core Workflow)
-│   ├── trace-pipeline     → Graph Enrichment (15-stage epistemic pipeline)
+├── Active Production Panels (19 Wired Panels)
+│   ├── trace-pipeline     → Graph Enrichment Pipeline (15-stage epistemic pipeline)
 │   ├── status             → Knowledge Status (index health, freshness, stats)
 │   ├── search             → Semantic Search
 │   ├── results            → Retrieved Context (code chunks & score preview)
@@ -46,7 +46,7 @@ SourcePrep Panel Architecture
 │   ├── mcp-snippet        → MCP Setup Snippet (IDE configuration generator)
 │   └── log-console        → Process Logs (real-time daemon log stream)
 │
-└── Deprecated / Sunsetted Panels (Do NOT Surface in Public UI)
+└── Sunsetted / Deprecated Panels (Excluded from Public Dashboard)
     ├── spaghetti          → SUNSET (Phase 65) — Merged into Opportunities
     ├── health_scanner     → SUNSET (Phase 65) — Merged into Opportunities
     ├── advisor            → SUNSET (Phase 65) — Merged into Opportunities / Roadmap
@@ -57,60 +57,36 @@ SourcePrep Panel Architecture
 
 ---
 
-## 3. Semantics & Terminology Refinement
+## 3. Semantics & Microcopy Audit
 
-### 3.1 Brand Alignment: Celebrating Epistemic Intelligence
-- **"Epistemic Context" & "Epistemic Reasoning":** Keep and celebrate. This is SourcePrep's defining identity (*"Give your AI access to the epistemic context it needs to understand your codebase"*). It clearly articulates that the system understands code truth, boundaries, and confidence, rather than just strings.
-- **Stage Descriptions:** Clarify what each stage produces in plain English while preserving its technical name in detailed tooltips.
+### 3.1 Preserving & Clarifying Core Epistemic Terminology
+- **Epistemic Reasoning (Stage 6):** Preserved and celebrated. Epistemic scoring provides multi-layer domain and confidence ratings for every symbol in the graph.
+- **Epistemic Confidence:** Kept in tooltips and detail views as the measure of structural certainty.
 
-### 3.2 Terminology & Microcopy Improvements
+### 3.2 Specific Microcopy & Label Refinements
 
-| Surface / Stage | Current Label / Copy | UX Friction / Ambiguity | Recommended Clean Label | Refined Description / Microcopy |
+| Component / Stage | Current Label / String | Reverse-Engineered Finding | Recommended Refinement | Rationale |
 |---|---|---|---|---|
-| **Stage 3** | Fast Catalogue | Sounds like an external package directory or store catalog. | **Symbol & File Catalog** (or *Fast Catalog*) | Maps and catalogs all symbols, declarations, and file metadata into the trace graph. |
-| **Stage 8** | Module Synthesis | "Synthesis" often implies generative AI code generation rather than clustering files into subsystems. | **Module Discovery & Synthesis** | Clusters files into cohesive architectural modules and dependency boundaries. |
-| **Stage 9** | Continuous Deepening | "Deepening" by itself is abstract; users aren't sure what is happening. | **Continuous Graph Deepening** | Iteratively resolves transitive call chains, indirect dependencies, and interface implementations. |
-| **Stage 15** | Immune System (`antibodies`) | Biological metaphor without context can sound like a malware scanner. | **Anti-Pattern Guards** (sub-titled *Immune System*) | Generates and checks codebase invariants to prevent architectural drift and regressions. |
-| **Search Output** | Prompt Buffer (`context-output`) | "Buffer" is an implementation detail (memory buffer). | **Generated Context Prompt** | The final assembled epistemic context, formatted and ready to paste to your AI. |
-| **Search Settings** | Context Assembler (`context-options`) | Mechanical phrasing for prompt options. | **Prompt & Context Settings** | Configure token budget, similarity thresholds, and structured citation output. |
-| **AI Gateway Telemetry** | `AIMD backoff`, `ghost locks`, `dynamic capacity` | Internal scheduler plumbing shown in standard sidebar view. | **Rate Limit Headroom: Normal / Throttled** | Keep detailed AIMD graphs and manual reset triggers in the AI Gateway Settings drawer. |
-| **Agent Roles** | Managed Employees (`ManagedEmployeesTab`) | "Employees" metaphor clashes with developer mental models for AI subagents. | **Managed Agent Roles** | AI agent definitions (`AGENTS.md`, `SOUL.md`, `KNOWLEDGE.md`) tailored to codebase subsystems. |
+| **Stage 3** (`catalogue`) | "Fast Catalogue" | Manifest is `trace_augment_manifest.json`, prop is `augmentationStatus`. "Catalogue" can sound like a shop catalog. | **Symbol & File Catalog** | Accurately describes cataloging all parsed AST declarations and file spans. |
+| **Stage 8** (`clustering`) | "Module Synthesis" | Manifest is `trace_modules_manifest.json`. "Synthesis" can be confused with LLM code generation. | **Module Discovery & Synthesis** | Clarifies that the engine is discovering subsystem boundaries and cohesive clusters. |
+| **Stage 9** (`deepening`) | "Continuous Deepening" | Manifest is `deepening_manifest.json`. Standalone "Deepening" is abstract. | **Continuous Graph Deepening** | Explains that the engine is iteratively traversing multi-hop references and interface implementations. |
+| **Stage 15** (`antibodies`) | "Immune System" | Manifest is `antibodies_manifest.json`. "Immune system" without context can sound like antivirus. | **Anti-Pattern Guards** (sub-label: *Immune System*) | Clarifies that this stage derives invariant rules to protect against code regressions. |
+| **Prompt Output** (`context-output`) | "Prompt Buffer" | In `ContextOutput.tsx`, title is hardcoded as "Prompt Buffer". | **Assembled AI Prompt** | "Buffer" is internal plumbing; users want the copy-ready prompt. |
+| **Search Settings** (`context-options`) | "Context Assembler" | In `ContextOptionsPanel.tsx`, title is "Context Assembler". | **Prompt & Context Settings** | Plain, intuitive label for configuring token budgets and similarity thresholds. |
+| **AI Gateway Telemetry** | `AIMD backoff`, `dynamic capacity`, `ghost locks` | In `SidebarAIGateway.tsx` & `CapacityHealth.tsx`. | **Rate Limit Headroom: Normal / Throttled** | Keeps internal scheduler math in the Settings inspector, displaying clear status in the sidebar. |
+| **Agent Roles** | "Managed Employees" / "HR Agent" | In `ManagedEmployeesTab.tsx`. | **Managed Agent Roles** | Fits standard AI coding agent workflows (`AGENTS.md`, `SOUL.md`, `KNOWLEDGE.md`). |
 
 ---
 
-## 4. Panel Headlines & Microcopy Audit
+## 4. Progressive Disclosure Architecture (No "Verbose Mode")
 
-Below is the verified audit of active panel headlines in [`packages/ui/src/config/panelRegistry.ts`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui/src/config/panelRegistry.ts):
+### 4.1 Reverse-Engineered Implementation in `GraphEnrichmentPipeline.tsx`
 
-| Panel ID | Current Title | Current Description | Refined Title | Refined Description (Actionable & Clear) |
-|---|---|---|---|---|
-| `trace-pipeline` | Graph Enrichment | The 15-stage enrichment pipeline... Hover each stage for its epistemological role. | **Graph Enrichment Pipeline** | 15-stage epistemic analysis pipeline: Sync, Deep Reasoning, and Finalize. Maps imports, modules, rules, and concepts. |
-| `status` | Knowledge Status | Health and freshness of your codebase knowledge... | **Index Status** | Real-time status and freshness of your codebase index — indexed symbols, embedding model, and file sync state. |
-| `search` | Search | Semantic search across your codebase knowledge... | **Codebase Search** | Semantic and structural search — find symbols, logic, and design decisions across your codebase. |
-| `context-options` | Context Assembler | Configure and assemble the context prompt from search results. | **Prompt Settings** | Fine-tune context window limits, relevance score thresholds, and structured citations. |
-| `results` | Retrieved Context | Chunks of code and text retrieved from your codebase knowledge. | **Retrieved Context** | Code snippets and symbol references retrieved by semantic relevance. |
-| `context-output` | Prompt Buffer | The final assembled context, ready to be copied to your LLM. | **Assembled AI Prompt** | Copy-ready context prompt with verified file paths, symbol spans, and epistemic citations. |
-| `file-tree` | Knowledge Scope | Pick which files belong in your codebase knowledge... | **File Scope & Filters** | Configure which directories and files are indexed. Boost key folders or exclude vendor code. |
-| `trace` | Code Graph Explorer | Navigate the complete web of relationships... | **Code Graph Explorer** | Explore symbol hierarchies, function calls, and import dependencies across modules. |
-| `audit` | Codebase Audit | Autonomous health analysis: architecture findings... | **Architecture & Quality Audit** | In-depth structural audit reports: architectural boundaries, quality gaps, and test coverage. |
-| `opportunities` | Opportunities | Unified codebase improvement opportunities... | **Codebase Opportunities** | Actionable improvements, refactoring candidates, and tech debt with 1-click AI prompts. |
-| `roadmap` | Roadmap | Visual project timeline: track completed, active... | **Project Roadmap** | Interactive milestone timeline tracking completed work, active tasks, and AI-suggested milestones. |
-| `agent-ops` | Agent Operations | Configure SourcePrep agent engines... | **Agent Operations** | Configure and export specialized agent roles (`AGENTS.md`) and connect to MCP clients. |
-| `architecture` | Architecture | Interactive architecture diagram... | **System Architecture** | High-level interactive diagram of modules, boundaries, and dependencies. |
-| `concepts` | Concepts | High-level codebase understanding: business rationale... | **Design Concepts & Rationale** | Documented architectural decisions, business rules, and domain models extracted from code. |
+Inspection of [`packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx) reveals that the component already contains the foundation for progressive disclosure:
+- `fastCollapsed`, `deepCollapsed`, `finalizeCollapsed` props control group visibility.
+- When collapsed, `CondensedGroupRow` renders an elegant, compact rollup badge (`computeGroupRollup`).
+- When expanded, `StageRow` renders full per-stage telemetry, model badges (`Rust`, `Thinking`, `CPU`), runtime durations, sub-progress bars, and provenance hashes.
 
----
-
-## 5. Clean Progressive Disclosure (Showing More Without Clutter)
-
-Instead of a binary "Simplified vs Verbose Mode" switch (which adds artificial cognitive overhead), SourcePrep should use **consistent progressive disclosure**:
-- **Default State:** Calm, high-signal, scannable. Displays high-level health, group completion, and key metrics.
-- **Interactive Disclosure ("Show Details" / Accordion):** Clicking into any section, stage, or panel expands rich sub-metrics, model tags, and debug logs inline.
-
-### 5.1 Case Study: Graph Enrichment Pipeline (`GraphEnrichmentPipeline.tsx`)
-
-#### Default Compact State (Calm & Clear)
-When the pipeline is idle or complete, groups collapse into clean status summaries:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ Graph Enrichment Pipeline                          [Rebuild ▾] │
@@ -125,11 +101,11 @@ When the pipeline is idle or complete, groups collapse into clean status summari
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-#### Expanded Stage Detail (Revealed on Click)
-Clicking on **Deep Enrichment** smoothly unfolds the 5 underlying stages with full technical depth:
+#### Inline Expansion (Zero Mode Switches)
+Clicking the chevron on **Deep Enrichment** smoothly unfolds the 5 underlying stages in place:
 ```
 │  ▼ 2. Deep Enrichment   Complete (Epistemic Reasoning)        ▴ │
-│    ├── [✓] Deep Code Reasoning    [Thinking] 4.5s · 82% confidence │
+│    ├── [✓] Epistemic Reasoning    [Thinking] 4.5s · 82% confidence │
 │    ├── [✓] Group Reasoning        [Thinking] 3.1s · 12 groups      │
 │    ├── [✓] Module Synthesis       [Thinking] 2.8s · 14 modules     │
 │    ├── [✓] Continuous Deepening   [Thinking] 1.9s · 340 hops       │
@@ -138,39 +114,36 @@ Clicking on **Deep Enrichment** smoothly unfolds the 5 underlying stages with fu
 
 ---
 
-### 5.2 Case Study: Search & Prompt Generation
+## 5. Playwright & UAT Harness Compatibility Audit
 
-#### Default Scannable State
-- Query bar at the top: *"Search codebase or ask an architecture question..."*
-- Clean result list showing matched files, symbols, and relevance score badges.
-- Prominent **"Copy Context for AI"** button in the header.
+### 5.1 Contract Scrutiny: `tools/playwright_smoke.py` & `tools/phase145_uat/invariants.py`
+We reverse-engineered the exact invariant checks in [`tools/phase145_uat/invariants.py`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/tools/phase145_uat/invariants.py):
+- **$I_1$**: At most one running row per active group (`ACTIVE_PIPELINE_PHASES`).
+- **$I_2$**: No running row shows a prior-run timestamp chip (`data-testid="last-run-chip"`).
+- **$I_3$**: No row downstream of `current_stage` shows `complete` during an active run (freeze-green safety).
+- **$I_{13}$**: Exactly one `data-testid="current-stage-indicator"` per group with an active stage.
+  - *Scrutiny finding:* $I_{13}$ explicitly documents: *"Collapsed groups are N/A. The dashboard renders `CondensedGroupRow` instead of per-stage rows when a group is collapsed... we skip rather than fire a guaranteed-zero false positive."*
+- **$I_{14}$**: No row says *"Not run"* against an API-completed `stage_results` entry.
+- **$I_{15}$**: No percent chip in any pipeline-stage-row exceeds 100%.
 
-#### Expanded Prompt Settings (Gear Icon)
-- Clicking the settings gear slides open a compact popover/drawer for:
-  - Max token/character budget slider ($2,000 - 32,000$ chars)
-  - Number of chunks ($k = 5 - 50$)
-  - Minimum similarity threshold ($0.0 - 1.0$)
-  - Include Atlas summary toggle
-  - Include structured JSON metadata toggle
+### 5.2 Preservation of Public Test Hooks
+All DOM test attributes remain untouched:
+- `data-testid="pipeline-panel"`
+- `data-testid="pipeline-stage-row-{stage_id}"`
+- `data-stage-id="{stage_id}"`
+- `data-stage-state="{state}"`
+- `data-stage-progress="{progress}"`
+- `data-testid="current-stage-indicator"`
+- `data-testid="last-run-chip"`
 
----
-
-## 6. Playwright & QA Harness Validation Strategy
-
-The existing test harness in [`tools/playwright_smoke.py`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/tools/playwright_smoke.py) and [`tools/phase145_uat/invariants.py`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/tools/phase145_uat/invariants.py) ensures that UI refinements do not introduce regressions or break automation contracts:
-
-1. **Test Attribute Contract:**
-   - Keep `data-testid="pipeline-stage-row-{stage_id}"`, `data-stage-id`, `data-stage-state`, and `data-stage-progress` intact on both collapsed group rows and expanded stage rows.
-   - The DOM scraper in `playwright_smoke.py` continues to evaluate stage states without error.
-2. **Automated UX Invariant Assertions:**
-   - $I_{\text{clean}}$: When all stages in a group are `complete`, the group header displays a valid green rollup status.
-   - $I_{\text{a11y}}$: Every interactive collapse chevron, pause button, and copy action carries an explicit `aria-label` and `title`.
-   - $I_{\text{legacy}}$: Assert that sunsetted panels (`spaghetti`, `health_scanner`, `advisor`, `goalposts`) never mount in the default dashboard grid.
+Any future invariant additions must be numbered sequentially starting at **$I_{16}$** to avoid colliding with existing $I_1$ through $I_{15}$.
 
 ---
 
-## 7. Actionable Next Steps
+## 6. Actionable Implementation Checklist
 
-1. **Update Panel Registry:** Apply the refined titles and descriptions in [`packages/ui/src/config/panelRegistry.ts`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui/src/config/panelRegistry.ts).
-2. **Refine Stage Sub-Labels:** Add the updated descriptive subtitles to `GraphEnrichmentPipeline.tsx` (e.g., *Symbol & File Catalog*, *Anti-Pattern Guards*).
-3. **Default to Group Rollups:** Ensure `GraphEnrichmentPipeline.tsx` defaults `fastCollapsed`, `deepCollapsed`, and `finalizeCollapsed` to `true` when all stages are complete, providing a clean, calm default experience with 1-click drilldown.
+- [ ] **1. Panel Registry Titles:** Update user-facing titles and descriptions in [`packages/ui/src/config/panelRegistry.ts`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui/src/config/panelRegistry.ts) to match the refined labels in §4.
+- [ ] **2. Component Fallback Titles:** Align hardcoded fallback titles in [`ContextOutput.tsx`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui/src/components/search/ContextOutput.tsx) and [`ContextOptionsPanel.tsx`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui/src/components/search/ContextOptionsPanel.tsx).
+- [ ] **3. Subtitle Refinements in Pipeline:** Update stage sub-labels in [`GraphEnrichmentPipeline.tsx`](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx) (*Symbol & File Catalog*, *Module Discovery & Synthesis*, *Continuous Graph Deepening*, *Anti-Pattern Guards*).
+- [ ] **4. Quarantined Sunset Panels:** Verify that `spaghetti`, `health_scanner`, `advisor`, `goalposts`, and `llm-status` remain flagged with `devOnly: true` or omitted from public builds.
+- [ ] **5. Test Suite Verification:** Run `.venv/bin/pytest tests/test_phase145_invariants.py` to confirm zero regression across all active invariant checks.
