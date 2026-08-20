@@ -503,11 +503,6 @@ def read_project_pointer(directory: str | Path) -> Optional[Dict[str, str]]:
     if the pointer doesn't exist or is malformed.
     """
     try:
-        from prep.core.paths import _migrate_embedded_dir
-        _migrate_embedded_dir(Path(directory).expanduser().resolve())
-    except Exception:
-        logger.debug("embedded .codrag/.runprep -> .sourceprep migration failed; continuing", exc_info=True)
-    try:
         pointer_path = Path(directory).expanduser().resolve() / ".sourceprep" / _POINTER_FILENAME
         if not pointer_path.is_file():
             return None

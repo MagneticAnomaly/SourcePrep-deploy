@@ -6,7 +6,7 @@ Main HTTP API for the SourcePrep daemon.
 Usage:
     python -m prep.server --repo-root /path/to/repo --port 8400
 
-Daemon-wide state defaults to `$PREP_DATA_DIR` or `~/.local/share/runprep/`.
+Daemon-wide state defaults to `$PREP_DATA_DIR` or `~/.local/share/sourceprep/`.
 Pass `--index-dir <path>` to override (deprecated).
 """
 
@@ -27,30 +27,6 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from prep import __version__
-
-# Phase 113: migrate legacy ./codrag_data/ before any store module gets
-# imported. Each service module (concept_store, antibody_store, etc.)
-# opens its SQLite connection at import time on a module-level
-# singleton — once they've opened the old path, the migration would
-# race against live write traffic. Running it here guarantees the
-# stores pick up their new XDG location from the first open.
-from prep.core.data_dir_migration import (
-    migrate_from_legacy_codrag as _migrate_from_codrag,
-)
-from prep.core.data_dir_migration import (
-    migrate_from_legacy_prep as _migrate_from_prep,
-)
-from prep.core.data_dir_migration import (
-    migrate_from_legacy_runprep as _migrate_from_runprep,
-)
-from prep.core.data_dir_migration import (
-    migrate_legacy_data_dir as _migrate_legacy,
-)
-
-_migrate_from_codrag()   # codrag -> runprep XDG dirs (rename one-shot, D4)
-_migrate_from_prep()     # prep -> runprep XDG dirs (brand-split one-shot)
-_migrate_from_runprep()  # runprep -> sourceprep XDG dirs (rename one-shot, S1)
-_migrate_legacy()        # CWD codrag_data -> XDG (Phase 113 one-shot)
 
 from prep.api.envelope import install_api_exception_handlers
 from prep.core import CodeIndex
@@ -1311,7 +1287,7 @@ def main():
     parser.add_argument(
         "--index-dir",
         default=None,
-        help="Directory to store index (deprecated; default is $PREP_DATA_DIR or ~/.local/share/runprep/)",
+        help="Directory to store index (deprecated; default is $PREP_DATA_DIR or ~/.local/share/sourceprep/)",
     )
     parser.add_argument("--ollama-url", default="http://localhost:11434", help="Ollama API URL")
     parser.add_argument("--model", default="nomic-embed-text", help="Embedding model name")

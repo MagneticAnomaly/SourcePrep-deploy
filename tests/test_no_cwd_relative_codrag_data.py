@@ -3,9 +3,9 @@
 Pre-fix: several modules hardcoded `./codrag_data` as the daemon's
 default data dir, so the daemon's on-disk state followed its CWD. The
 fix introduced `prep.core.paths.data_dir()` as the single source of
-truth. This test fails if any new src file reintroduces the legacy
-literal outside a narrow, documented allowlist (the migration helper,
-self-ingestion guard strings, and CLI docstrings).
+truth. The legacy migration has since been gutted (dead codename, zero
+users), so NO src file may reference the literal — this test fails on
+any reintroduction.
 
 If this test fails, the path you're tempted to reach for is:
 `from prep.core.paths import data_dir` (daemon-wide) or
@@ -18,25 +18,11 @@ from pathlib import Path
 
 SRC_ROOT = Path(__file__).resolve().parent.parent / "src" / "prep"
 
-# Files allowed to reference the legacy literal because their job IS
-# to deal with the legacy layout.
-_ALLOWLIST_RELATIVE = frozenset({
-    # The migration helper literally moves files OUT of ./codrag_data/.
-    "core/data_dir_migration.py",
-    # The paths module documents the legacy name in its module docstring
-    # and in `legacy_cwd_data_dir()`.
-    "core/paths.py",
-    # repo_profile's self-ingestion guard uses "codrag_data" as a
-    # directory basename in the L1 exclude set. Keeping it there
-    # protects legacy-layout users during the transition.
-    "core/repo_profile.py",
-    # watcher.py's module docstring / comments reference the legacy
-    # layout; the code path is through data_dir() now.
-    "core/watcher.py",
-    # config_manager's shim accepts both the new and legacy values
-    # on `index_dir` for backwards compat.
-    "services/config_manager.py",
-})
+# The Phase-113 legacy `./codrag_data` migration was gutted (dead
+# codename, zero users) — no src file legitimately references the
+# literal anymore. This allowlist is intentionally empty: any
+# reintroduction of `codrag_data` in src is a bug.
+_ALLOWLIST_RELATIVE: frozenset[str] = frozenset()
 
 # Regex: "./codrag_data" or "codrag_data/" as a STRING LITERAL (we
 # allow docstrings/comments — they're caught manually above via the

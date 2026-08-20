@@ -128,6 +128,12 @@ DENY_PATH_GLOBS = [
     "*.timestamp-*.mjs",
     "*.tsbuildinfo",
     "packages/ui/reports/mutation/*",
+    # The mirror-build script itself. It is meta-tooling for the
+    # workshop -> public-mirror transform, not part of the public
+    # product. It must contain the dead-codename/secret regex literals
+    # it detects (self-exempt from the content scan), so shipping it
+    # would leak those literals into the emitted tree. Exclude it.
+    "tools/build_public_mirror.py",
     # Local state + private metadata:
     ".sourceprep",
     "*/.sourceprep",
