@@ -227,6 +227,21 @@ STAGE_OUTPUT_FILE: Dict[StageId, Optional[str]] = {
     StageId.ANTIBODIES:      None,
 }
 
+# ── Shared-Output Stages (Phase 72D, hoisted in Phase 145) ──────
+# Stages whose declared output file is shared with an earlier stage
+# (deepening overwrites enrichment's trace_epistemic.jsonl;
+# deep_knowledge rewrites knowledge's knowledge_* files).  For these
+# stages, "output file exists but no manifest" is NOT evidence of
+# partial/crashed work — the file belongs to the earlier stage.
+# Selfheal must skip orphan-stub creation for them (recovery.py), and
+# the run_fast_sync downstream-partial guard must not treat the shared
+# file as stub-extrapolation risk (orchestrator.py).
+SHARED_OUTPUT_STAGES: frozenset[StageId] = frozenset({
+    StageId.DEEPENING,      # shares trace_epistemic.jsonl with ENRICHMENT
+    StageId.DEEP_KNOWLEDGE, # shares knowledge_* with KNOWLEDGE
+})
+
+
 # ── Confidence Field per Stage (Phase 49) ────────────────────────
 # Which JSON field holds the confidence score in each stage's output.
 

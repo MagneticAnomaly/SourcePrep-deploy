@@ -1,6 +1,14 @@
 # Phase 145 Proposal — Fix the three gates that silently block auto-incremental fast_sync (v1)
 
-**Status:** Draft, awaiting scrutiny.
+**Status:** SUPERSEDED by `PROPOSAL_auto-incremental-three-gates-v2.md` (implemented).
+Scrutiny confirmed RC#1/RC#2 but disproved RC#3's stated mechanism: the live
+blocker was a finalize run stuck `"queued"` in memory (`blocking_run` branch),
+not `finalize_resume = 4` from §2n — all 15 manifests, including
+`antibodies_manifest.json`, exist on disk for the dogfood project, and the
+decision telemetry shows `deep_resume: 5, finalize_resume: 5` with
+`blocking_run: ["finalize", "queued"]`. A3's `STAGE_DATA_FILES` approach was
+also unsound (no finalize-stage entries; false-positives on shared-output
+stages). See v2 §1 for the full correction. Kept below for the record.
 **Companion findings:**
 - `FINDING_auto-incremental-never-fired-despite-stale-files.md` (§2q — root cause now pinned, see §1 below)
 - `FINDING_edge-discovery-stuck-pending-auto-incremental-refuses.md` (§2s — paired symptom, same root cause for the auto-refuses half)

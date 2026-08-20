@@ -26,14 +26,21 @@ class AutoRebuildWatcher:
     # exist on disk but aren't in the trace graph.
     _COVERAGE_CHECK_INTERVAL = 300.0  # 5 minutes
 
-    # Coverage gap thresholds: don't trigger rebuild if the project
-    # is "close enough" — the remaining untraced files are likely
-    # binary, generated, or intentionally excluded.
-    _COVERAGE_GAP_OK_PCT = 95.0       # ≥95% traced → "close enough"
-    _COVERAGE_GAP_OK_MAX_FILES = 20   # ≤20 untraced → "close enough"
     # After triggering a coverage-gap rebuild, suppress re-triggers
     # for this many seconds to prevent the every-5-minute loop.
     _COVERAGE_COOLDOWN_SECONDS = 1800  # 30 minutes
+
+    # Phase 145: loop-guard backoff cap for the coverage check.  When a
+    # coverage-triggered rebuild leaves the untraced set UNCHANGED, the
+    # files are untraceable-in-practice (parser/worker drops them) —
+    # back off exponentially instead of rebuilding every cooldown.
+    _COVERAGE_LOOP_BACKOFF_CAP_SECONDS = 6 * 3600  # 6 hours
+
+    # Phase 145: backoff cap for the debounce re-queue when
+    # run_fast_sync refuses to start (returns started=False).  Without
+    # a cap the watcher would re-fire every debounce_ms forever,
+    # spamming the log and hammering the orchestrator's guard checks.
+    _TRIGGER_FAILURE_BACKOFF_CAP_SECONDS = 300.0  # 5 minutes
 
     def __init__(
         self,
@@ -72,6 +79,17 @@ class AutoRebuildWatcher:
         self._stale_since: Optional[str] = None  # ISO timestamp when index became stale
         self._last_coverage_check_at: Optional[str] = None
         self._last_coverage_trigger_at: float = 0.0  # epoch when we last triggered a coverage rebuild
+        # Phase 145: consecutive run_fast_sync refusals (started=False)
+        # drive the debounce re-queue backoff; reset on any successful
+        # trigger.
+        self._consecutive_trigger_failures: int = 0
+        # Phase 145: coverage loop-guard state.  The signature is the
+        # untraced path set at the last successful coverage trigger;
+        # if a later check sees the identical set, the previous rebuild
+        # did not resolve those files (untraceable) → back off.
+        self._last_coverage_trigger_sig: frozenset | None = None
+        self._coverage_loop_skips: int = 0
+        self._coverage_suppress_until: float = 0.0
 
         # L1 (repo_profile.DEFAULT_EXCLUDE_DIR_NAMES) already covers the
         # default `.sourceprep/` index dirs. Only add an
@@ -120,6 +138,7 @@ class AutoRebuildWatcher:
             self._last_rebuild_at = None
             self._next_rebuild_at = None
             self._stale_since = None
+            self._consecutive_trigger_failures = 0
 
             handler = _AutoRebuildEventHandler(self)
             observer = Observer()
@@ -217,6 +236,7 @@ class AutoRebuildWatcher:
             self._pending_paths = set()
             self._stale_since = None
             self._next_rebuild_at = None
+            self._consecutive_trigger_failures = 0
             if self._timer is not None:
                 try:
                     self._timer.cancel()
@@ -378,19 +398,38 @@ class AutoRebuildWatcher:
                     self._state = "building"
                 return
 
+            # Phase 145 (§2q/RC#2): the trigger was REFUSED (e.g.
+            # run_fast_sync's downstream guard) — re-queue the paths so
+            # they are not silently dropped, and back off exponentially
+            # so a permanently-refusing gate doesn't re-fire every
+            # debounce_ms forever.  Counter resets on the next
+            # successful trigger, start(), or clear_pending_state().
             with self._lock:
                 self._pending_paths.update(paths)
+                self._consecutive_trigger_failures += 1
+                failures = self._consecutive_trigger_failures
                 self._state = "debouncing"
-                delay = max(0.1, self.debounce_ms / 1000.0)
+                base_delay = max(0.1, self.debounce_ms / 1000.0)
+                delay = min(
+                    base_delay * (2 ** (failures - 1)),
+                    self._TRIGGER_FAILURE_BACKOFF_CAP_SECONDS,
+                )
                 self._next_rebuild_at = (datetime.now(timezone.utc) + _seconds(delay)).isoformat()
                 self._timer = threading.Timer(delay, self._on_debounce_fire)
                 self._timer.daemon = True
                 self._timer.start()
+            logger.warning(
+                "Watcher: build trigger refused for %s (started=False) — "
+                "%d pending paths re-queued, retry #%d in %.0fs. "
+                "See the orchestrator log for the refusing gate's reason.",
+                self.project_id, len(paths), failures, delay,
+            )
             return
 
         with self._lock:
             self._state = "building"
             self._last_trigger_at_epoch = time.time()
+            self._consecutive_trigger_failures = 0
 
         t = threading.Thread(target=self._wait_for_build_complete, daemon=True)
         t.start()
@@ -507,9 +546,10 @@ class AutoRebuildWatcher:
 
         Guards against spurious retriggering:
         - Manual mode → skip
-        - Pipeline already running → skip
-        - Coverage ≥95% with ≤20 untraced → skip (close enough)
+        - Pipeline already running → skip (stale runs are force-reset first)
         - Recently triggered → cooldown
+        - Untraced set unchanged since last coverage-triggered rebuild →
+          escalating loop-guard backoff (untraceable files)
         """
         with self._lock:
             if not self._enabled:
@@ -543,6 +583,23 @@ class AutoRebuildWatcher:
                 from prep.services.pipeline_orchestrator import pipeline_orchestrator
                 po_status = pipeline_orchestrator.status(self.project_id)
                 if po_status.get("any_running"):
+                    # Phase 145 (§2q/RC#3): a stale/abandoned run (worker
+                    # crashed, or a queued run whose capacity notification
+                    # never fired) reports any_running forever — which
+                    # suppresses this backstop AND the heartbeat watchdog
+                    # below indefinitely.  force_reset_stale_runs only
+                    # resets runs whose stage build slot is idle and whose
+                    # age exceeds the staleness window, so a genuinely
+                    # active run is untouched.
+                    reset = pipeline_orchestrator.force_reset_stale_runs(self.project_id)
+                    if reset:
+                        logger.warning(
+                            "Coverage check: force-reset stale pipeline runs "
+                            "for %s: %s",
+                            self.project_id, reset,
+                        )
+                        po_status = pipeline_orchestrator.status(self.project_id)
+                if po_status.get("any_running"):
                     logger.debug(
                         "Coverage check skipped — pipeline active for %s",
                         self.project_id,
@@ -560,6 +617,19 @@ class AutoRebuildWatcher:
             logger.debug(
                 "Coverage check skipped — cooldown (%.0fs remaining)",
                 self._COVERAGE_COOLDOWN_SECONDS - elapsed_since_trigger,
+            )
+            self._schedule_coverage_check()
+            return
+
+        # Phase 145: loop-guard suppression.  When a coverage-triggered
+        # rebuild leaves the untraced set unchanged (untraceable files),
+        # the suppress-until timestamp pushes the next attempt out with
+        # an escalating backoff.
+        suppress_remaining = self._coverage_suppress_until - time.time()
+        if suppress_remaining > 0:
+            logger.debug(
+                "Coverage check skipped — untraceable-set backoff (%.0fs remaining)",
+                suppress_remaining,
             )
             self._schedule_coverage_check()
             return
@@ -584,9 +654,13 @@ class AutoRebuildWatcher:
                 self._on_coverage_gap()
                 self._last_coverage_check_at = now_iso
             elif self.project_id:
-                # Fallback: use PipelineOrchestrator directly
+                # Fallback: use PipelineOrchestrator directly.
+                # include_paths=True so the loop guard can compare the
+                # actual untraced set across cycles.
                 from prep.services.pipeline_orchestrator import pipeline_orchestrator
-                gap = pipeline_orchestrator.check_coverage_gap(self.project_id)
+                gap = pipeline_orchestrator.check_coverage_gap(
+                    self.project_id, include_paths=True,
+                )
                 self._last_coverage_check_at = now_iso
 
                 untraced = gap.get("untraced", 0)
@@ -594,16 +668,48 @@ class AutoRebuildWatcher:
                 coverage_pct = gap.get("coverage_pct", 0.0)
 
                 if gap.get("needs_rebuild"):
-                    # "Close enough" check: if coverage is very high and
-                    # only a handful of files are untraced, don't bother.
-                    # Those files are likely binary, generated, or excluded.
-                    if (stale == 0
-                            and coverage_pct >= self._COVERAGE_GAP_OK_PCT
-                            and untraced <= self._COVERAGE_GAP_OK_MAX_FILES):
+                    # Phase 145 (§2q/RC#1): the pre-145 "close enough"
+                    # gate suppressed high-coverage repos with ≤20
+                    # untraced files on the assumption they were
+                    # binary/generated/excluded.  That assumption is
+                    # false: compute_trace_coverage only reports
+                    # *eligible* files as untraced (binary/generated/
+                    # excluded files never appear in the list), so the
+                    # gate silently starved legitimate source files
+                    # (observed live: 9 untraced .py/.md files skipped
+                    # every 5 min for days).
+                    #
+                    # The gate is replaced by a loop guard targeting the
+                    # real risk — eligible-but-untraceable files (the
+                    # parser/worker keeps dropping them, so the untraced
+                    # set never shrinks).  If the untraced set is
+                    # IDENTICAL to the set at the last coverage-triggered
+                    # rebuild, the rebuild demonstrably did not resolve
+                    # those files: suppress with an escalating backoff.
+                    # Stale files (content changed) always re-trigger —
+                    # they are re-runnable by definition.
+                    untraced_sig = (
+                        frozenset(gap.get("changed_paths") or ())
+                        if stale == 0 else None
+                    )
+                    if (untraced_sig is not None
+                            and self._last_coverage_trigger_sig is not None
+                            and untraced_sig == self._last_coverage_trigger_sig):
+                        self._coverage_loop_skips += 1
+                        backoff = min(
+                            self._COVERAGE_COOLDOWN_SECONDS * (2 ** self._coverage_loop_skips),
+                            self._COVERAGE_LOOP_BACKOFF_CAP_SECONDS,
+                        )
+                        self._coverage_suppress_until = time.time() + backoff
                         logger.info(
-                            "Watcher coverage check for %s: %d untraced + %d stale "
-                            "files (%.1f%% coverage) — close enough, skipping",
-                            self.project_id, untraced, stale, coverage_pct,
+                            "Watcher coverage check for %s: %d untraced files "
+                            "(%.1f%% coverage) unchanged since the last "
+                            "coverage-triggered rebuild — treating as "
+                            "untraceable, backing off %.0fs (skip #%d). "
+                            "Sample: %s",
+                            self.project_id, untraced, coverage_pct, backoff,
+                            self._coverage_loop_skips,
+                            ", ".join(sorted(untraced_sig)[:5]),
                         )
                     else:
                         logger.info(
@@ -611,9 +717,27 @@ class AutoRebuildWatcher:
                             "files (%.1f%% coverage) — triggering rebuild",
                             self.project_id, untraced, stale, coverage_pct,
                         )
-                        self._last_coverage_trigger_at = time.time()
                         # Trigger via the normal build path so all guards apply
-                        self._on_trigger_build(["__coverage_gap__"])
+                        try:
+                            started = bool(self._on_trigger_build(["__coverage_gap__"]))
+                        except Exception:
+                            started = False
+                        if started:
+                            # Only consume the cooldown when a build
+                            # actually started — a refused trigger retries
+                            # on the next 5-min cycle instead of being
+                            # silently eaten behind a 30-min cooldown.
+                            self._last_coverage_trigger_at = time.time()
+                            self._last_coverage_trigger_sig = untraced_sig
+                            self._coverage_loop_skips = 0
+                        else:
+                            logger.warning(
+                                "Watcher coverage check for %s: rebuild trigger "
+                                "refused (started=False) — will retry next cycle. "
+                                "See the orchestrator log for the refusing "
+                                "gate's reason.",
+                                self.project_id,
+                            )
                 else:
                     logger.debug(
                         "Watcher coverage check for %s: %.1f%% coverage — OK",

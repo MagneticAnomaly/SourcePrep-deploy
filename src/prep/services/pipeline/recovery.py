@@ -22,6 +22,7 @@ from .stages import (
     DEEP_ENRICHMENT_STAGES,
     FAST_SYNC_STAGES,
     FINALIZE_STAGES,
+    SHARED_OUTPUT_STAGES,
     STAGE_MANIFEST_FILE,
     STAGE_OUTPUT_FILE,
     StageId,
@@ -905,7 +906,7 @@ class RecoveryManager:
 
         # Shared-output stages: orphan detection must be skipped because
         # the output file belongs to an earlier stage, not this one.
-        _SHARED_OUTPUT_STAGES = {StageId.DEEPENING, StageId.DEEP_KNOWLEDGE}
+        # Canonical definition: stages.SHARED_OUTPUT_STAGES (Phase 145).
 
         for stage in stages:
             stage_detail: dict[str, Any] = {"stage": stage.value}
@@ -921,7 +922,7 @@ class RecoveryManager:
             manifest_file = STAGE_MANIFEST_FILE.get(stage)
 
             # 2. Orphan output: file exists on disk but no manifest.
-            if output_file and stage not in _SHARED_OUTPUT_STAGES:
+            if output_file and stage not in SHARED_OUTPUT_STAGES:
                 orphan_path = idx_dir / output_file
                 if orphan_path.is_file() and orphan_path.stat().st_size > 1024:
                     # Do NOT resurrect when the output file belongs to a
@@ -1734,11 +1735,8 @@ class RecoveryManager:
                         # Phase 72D: SKIP stub creation for stages that share
                         # their output file with a prior stage. The data file
                         # belongs to the earlier stage, not this one.
-                        _SHARED_OUTPUT_STAGES = {
-                            StageId.DEEPENING,       # shares trace_epistemic.jsonl with ENRICHMENT
-                            StageId.DEEP_KNOWLEDGE,  # shares knowledge_* with KNOWLEDGE
-                        }
-                        if stage in _SHARED_OUTPUT_STAGES:
+                        # Canonical definition: stages.SHARED_OUTPUT_STAGES.
+                        if stage in SHARED_OUTPUT_STAGES:
                             # Phase 93: A missing manifest for a shared-output
                             # stage means it hasn't been run yet — that's normal
                             # steady-state, not a crash recovery scenario. Only

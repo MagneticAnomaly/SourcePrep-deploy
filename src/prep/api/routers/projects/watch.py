@@ -163,7 +163,12 @@ def start_project_watch(
                     "(deep auto-chains if per-project deepEnrichment=auto)",
                     proj.id, started,
                 )
-                return True
+                # Phase 145 (§2q/RC#2): return the ACTUAL result.  The
+                # watcher's debounce path re-queues pending paths when
+                # this returns False; returning True unconditionally
+                # silently dropped the pending set whenever run_fast_sync
+                # refused to start (e.g. downstream-partial guard).
+                return bool(started)
             except Exception:
                 logger.warning("Pipeline trigger failed for %s, falling back to legacy", proj.id, exc_info=True)
                 _srv()._start_project_trace_build(proj, include_globs, exclude_globs, max_file_bytes=max_file_bytes, hard_limit_bytes=hard_limit_bytes)
@@ -195,11 +200,18 @@ def start_project_watch(
             import time as _time
             from prep.services.pipeline_orchestrator import pipeline_orchestrator as _po
             po_status = _po.status(proj.id)
-            for group_key in ("fast_sync", "deep_enrichment"):
+            # Phase 145: include "finalize" — an active finalize run must
+            # register as "building" so the watcher waits gracefully, and
+            # a stale finalize run gets force-reset like the others.
+            # "queued" is covered alongside "running": a queued run whose
+            # capacity notification never fired is stale the same way
+            # (force_reset_stale_runs still verifies the build slot is
+            # idle before resetting, so legitimately-queued runs are safe).
+            for group_key in ("fast_sync", "deep_enrichment", "finalize"):
                 group = po_status.get(group_key) or {}
                 if group.get("is_active"):
                     started_at = group.get("started_at")
-                    if started_at and (_time.time() - started_at > 600) and group.get("phase") == "running":
+                    if started_at and (_time.time() - started_at > 600) and group.get("phase") in ("running", "queued"):
                         # Force-reset stale runs so the watcher can proceed
                         reset = _po.force_reset_stale_runs(proj.id)
                         if reset:

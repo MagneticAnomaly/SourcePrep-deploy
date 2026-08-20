@@ -32,6 +32,7 @@ from .scheduler import pipeline_scheduler
 from .stages import (
     DEEP_ENRICHMENT_STAGES,
     FAST_SYNC_STAGES,
+    SHARED_OUTPUT_STAGES,
     STAGE_BUILD_TYPE,
     STAGE_CONFIDENCE_FIELD,
     STAGE_MANIFEST_FILE,
@@ -776,7 +777,45 @@ class PipelineOrchestrator:
             )
             deep_partial = 0 < deep_resume < len(DEEP_ENRICHMENT_STAGES)
             finalize_partial = 0 < finalize_resume < len(FINALIZE_STAGES)
-            downstream_partial = deep_partial or finalize_partial
+
+            # Phase 145 (§2q/RC#3): "0 < resume < total" is only a proxy
+            # for the guard's actual concern — selfheal manufacturing a
+            # stub manifest from partial on-disk output.  Tighten it to
+            # the real condition: a stage past the resume point that has
+            # a dedicated orphan-able output file on disk but no
+            # provenance manifest.  Stages that share their output file
+            # with an earlier stage (deepening, deep_knowledge) or have
+            # no data file at all (rules, concepts, audit, antibodies)
+            # can't be stub-resurrected from orphan data, so their
+            # incompleteness is not a blocking risk.  This prevents a
+            # permanently-incomplete-but-harmless downstream stage from
+            # blocking every incremental fast_sync forever.
+            if deep_partial or finalize_partial:
+                deep_blocking = (
+                    deep_partial
+                    and self._has_stub_extrapolation_risk(
+                        project_id, DEEP_ENRICHMENT_STAGES, deep_resume,
+                    )
+                )
+                finalize_blocking = (
+                    finalize_partial
+                    and self._has_stub_extrapolation_risk(
+                        project_id, FINALIZE_STAGES, finalize_resume,
+                    )
+                )
+                downstream_partial = deep_blocking or finalize_blocking
+                if (deep_partial or finalize_partial) and not downstream_partial:
+                    logger.info(
+                        "[%s] Downstream groups partial (deep=%d/%d, "
+                        "finalize=%d/%d) but no stub-extrapolation risk "
+                        "(no orphan output files) — allowing incremental "
+                        "fast_sync",
+                        project_id,
+                        deep_resume, len(DEEP_ENRICHMENT_STAGES),
+                        finalize_resume, len(FINALIZE_STAGES),
+                    )
+            else:
+                downstream_partial = False
 
             # (b) Active/paused downstream runs in memory. Hydration on
             # daemon restart should populate self._runs from disk; if a
@@ -789,6 +828,33 @@ class PipelineOrchestrator:
                     if other and (other.is_active or other.is_paused):
                         blocking_run = (blocking_group, other.state.value)
                         break
+
+            # Phase 145 (§2q/RC#3): a "blocking" run that is actually
+            # STALE — worker crashed mid-stage, or a queued run whose
+            # capacity notification never fired after a daemon restart —
+            # must not block incremental fast_sync forever (observed
+            # live: a finalize run stuck "queued" blocked every auto
+            # fast_sync for days).  force_reset_stale_runs only resets
+            # active runs whose current stage's build slot is idle and
+            # whose age exceeds the staleness window, so a genuinely
+            # running or legitimately-queued downstream group still
+            # blocks.  User-paused runs are deliberate state and remain
+            # blocking regardless of age.
+            if blocking_run is not None and blocking_run[1] != "paused":
+                reset_groups = self.force_reset_stale_runs(project_id)
+                if blocking_run[0] in reset_groups:
+                    logger.warning(
+                        "[%s] Downstream %s run was stale (%s) — force-reset; "
+                        "incremental fast_sync may proceed",
+                        project_id, blocking_run[0], blocking_run[1],
+                    )
+                    if pfl:
+                        pfl.decision("mode_selection", "stale_blocking_run_reset", {
+                            "group": "fast_sync",
+                            "reset_group": blocking_run[0],
+                            "was_state": blocking_run[1],
+                        })
+                    blocking_run = None
 
             if downstream_partial or blocking_run is not None:
                 reason_parts = []
@@ -1844,6 +1910,60 @@ class PipelineOrchestrator:
             project_id, stages, skip_mtime_cascade,
             pfl_fn=self._get_file_logger,
         )
+
+    def _has_stub_extrapolation_risk(
+        self,
+        project_id: str,
+        stages: list[StageId],
+        resume_index: int,
+    ) -> bool:
+        """True if any stage at/past the resume point could be stub-resurrected
+        from orphan on-disk data — the exact condition selfheal's orphan rule
+        acts on (recovery.py): the stage has a dedicated, non-shared output
+        file that exists on disk (>1 KiB) but no provenance manifest.
+
+        This is the downstream-partial guard's real concern.  Stages that
+        share their output file with an earlier stage
+        (``SHARED_OUTPUT_STAGES``) or declare no data output (rules,
+        concepts, audit, antibodies) can never be stub-resurrected from
+        orphan data, so their incompleteness carries no
+        stub-extrapolation risk.
+
+        Conservative on error: returns True (keep the guard engaged).
+        """
+        try:
+            from prep.core.project_registry import project_index_dir
+            from prep.services.project_helpers import require_project
+
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+            store = ManifestStore(idx_dir)
+
+            for stage in stages[resume_index:]:
+                if store.provenance_exists(stage):
+                    continue
+                if stage in SHARED_OUTPUT_STAGES:
+                    continue
+                output_file = STAGE_OUTPUT_FILE.get(stage)
+                if not output_file:
+                    continue
+                data_path = idx_dir / output_file
+                if data_path.is_file() and data_path.stat().st_size > 1024:
+                    logger.info(
+                        "[%s] Stub-extrapolation risk: stage %s has orphan "
+                        "output %s (%d bytes) but no provenance manifest",
+                        project_id, stage.value, output_file,
+                        data_path.stat().st_size,
+                    )
+                    return True
+            return False
+        except Exception:
+            logger.debug(
+                "Stub-extrapolation risk check failed for %s — "
+                "conservatively treating as risky",
+                project_id, exc_info=True,
+            )
+            return True
     @staticmethod
     def _is_fast_sync_auto(project_id: str) -> bool:
         """Check if fast sync should auto-trigger on file changes.
