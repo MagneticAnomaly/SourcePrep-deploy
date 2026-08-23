@@ -118,6 +118,10 @@ npm workspaces managed by Turbo:
 - **TypeScript:** Standard ESLint + TypeScript strict. Tailwind for styling.
 - **Rust:** Standard cargo fmt/clippy conventions.
 
+## Commit Rules
+
+- **NEVER add `Co-Authored-By` trailers to commit messages.** This includes the `Co-Authored-By: Devin <...>` trailer and any similar co-author attribution. Commits must be authored solely under the committer's identity. No bots, no co-authors, no "Generated with [Devin]" lines either — keep commit messages clean and factual.
+
 ## Key Ports
 
 | Service | Port |

@@ -87,6 +87,15 @@ once the daemon runs.
 
 ## Operational notes (user-maintained)
 
+### Commit messages — no Co-Authored-By trailers
+
+**NEVER add `Co-Authored-By` trailers to commit messages.** This
+includes the `Co-Authored-By: Devin <...>` trailer and any similar
+co-author attribution. Also omit "Generated with [Devin]" lines.
+Commits must be authored solely under the committer's identity — no
+bots, no co-authors. This rule applies to all agents (Devin, Claude
+Code, Cursor, etc.) operating in this repository.
+
 ### Reset cloud LLM concurrency discovery (Phase 119)
 
 If the user reports that a cloud endpoint's parallelism looks wrong
