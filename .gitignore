@@ -125,6 +125,10 @@ TEST3/
 # Tauri signing keys (NEVER commit private key)
 src/prep/dashboard/src-tauri/.tauri/
 
+# Tauri sidecar binaries — built by scripts/build_sidecar.sh, never commit
+# (60+ MB each; rebuild locally before `tauri dev` / `tauri build`)
+src/prep/dashboard/src-tauri/binaries/
+
 # Local reference files (not for repo)
 plausible-tags.txt
 
