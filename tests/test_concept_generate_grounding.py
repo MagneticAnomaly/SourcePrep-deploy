@@ -28,7 +28,7 @@ def test_swarm_size_1_yields_one_scope_with_all_categories():
     scopes = build_worker_scopes(1)
     assert len(scopes) == 1
     s = scopes[0]
-    assert len(s.categories) == 11   # all VALID_CATEGORIES
+    assert len(s.categories) == 12   # all VALID_CATEGORIES (incl. tradeoff)
     assert s.worker_id == "all"
     assert s.label == "all-categories"
 
@@ -47,14 +47,14 @@ def test_swarm_size_3_yields_three_axis_scopes():
         )
         seen.update(s.categories)
     assert seen == set(AXIS_3_INTENT) | set(AXIS_3_RULES) | set(AXIS_3_IMPLEMENTATION)
-    assert len(seen) == 11   # full coverage of VALID_CATEGORIES
+    assert len(seen) == 12   # full coverage of VALID_CATEGORIES
 
 
 def test_swarm_size_10_yields_eleven_per_category_scopes():
-    """The 10-bucket means 'one worker per category'. With 11 categories
-    the actual worker count is 11. Plan README §3 documents this."""
+    """The 10-bucket means 'one worker per category'. With 12 categories
+    the actual worker count is 12. Plan README §3 documents this."""
     scopes = build_worker_scopes(10)
-    assert len(scopes) == 11
+    assert len(scopes) == 12
     # Each scope holds exactly one category
     for s in scopes:
         assert len(s.categories) == 1
@@ -62,7 +62,7 @@ def test_swarm_size_10_yields_eleven_per_category_scopes():
     # Together they cover every category exactly once
     all_cats = [c for s in scopes for c in s.categories]
     assert sorted(all_cats) == sorted(set(all_cats))   # no dups
-    assert len(all_cats) == 11
+    assert len(all_cats) == 12
 
 
 def test_invalid_swarm_size_rejected():

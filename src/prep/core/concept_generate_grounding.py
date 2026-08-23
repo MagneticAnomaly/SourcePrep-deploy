@@ -39,7 +39,7 @@ from .docs_grounding import DiscoveredDoc
 # These are mutually exclusive and together cover all 11 VALID_CATEGORIES.
 
 AXIS_3_INTENT = ("architecture", "domain", "product")
-AXIS_3_RULES = ("security", "constraint", "decision")
+AXIS_3_RULES = ("security", "constraint", "decision", "tradeoff")
 AXIS_3_IMPLEMENTATION = (
     "technical", "pattern", "process", "epistemic", "brand",
 )

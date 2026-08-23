@@ -82,6 +82,11 @@ VALID_CATEGORIES = {
     "pattern",       # Recurrent code structures and design patterns
     "constraint",    # Performance limits, API restrictions, legacy compatibility
     "decision",      # ADRs, trade-off rationale, why X was chosen over Y
+    "tradeoff",      # Explicit trade-off articulation (cost vs benefit).
+                     # The synthesizer prompt (concept_synthesizer.py:436)
+                     # instructs the LLM to emit this category; it must be
+                     # valid here so save_many doesn't silently coerce it
+                     # to 'technical'. (Investigation 2026-08-22 §4.1)
 }
 
 # Valid statuses
@@ -1069,8 +1074,16 @@ class ConceptStore:
         query: str,
         limit: int = 10,
         include_archived: bool = False,
+        kind: Optional[str] = "concept",
     ) -> List[Concept]:
-        """Search concepts by title and content.  Uses FTS5 if available."""
+        """Search concepts by title and content.  Uses FTS5 if available.
+
+        Phase 125b / Investigation 2026-08-22 (B-sub): ``kind`` defaults to
+        ``"concept"`` so the curated cross-cutting layer is searched
+        without leaking thousands of ``module_rationale`` rows. Pass
+        ``kind=None`` to search both layers, or ``kind="module_rationale"``
+        for the rationale layer.
+        """
         conn = self._require_conn()
         results: List[Concept] = []
 
@@ -1084,8 +1097,14 @@ class ConceptStore:
                 """
                 if not include_archived:
                     fts_sql += " AND c.status != 'archived'"
+                if kind is not None:
+                    fts_sql += " AND c.kind = ?"
                 fts_sql += " ORDER BY rank LIMIT ?"
-                rows = conn.execute(fts_sql, (fts_query, project_id, limit)).fetchall()
+                fts_params: list = [fts_query, project_id]
+                if kind is not None:
+                    fts_params.append(kind)
+                fts_params.append(limit)
+                rows = conn.execute(fts_sql, fts_params).fetchall()
                 results = [Concept.from_row(r) for r in rows]
             except sqlite3.OperationalError:
                 # FTS not available — fall back to LIKE
@@ -1095,10 +1114,14 @@ class ConceptStore:
                 """
                 if not include_archived:
                     like_sql += " AND status != 'archived'"
+                if kind is not None:
+                    like_sql += " AND kind = ?"
                 like_sql += " ORDER BY created_at DESC LIMIT ?"
-                rows = conn.execute(
-                    like_sql, (project_id, f"%{query}%", f"%{query}%", limit),
-                ).fetchall()
+                like_params: list = [project_id, f"%{query}%", f"%{query}%"]
+                if kind is not None:
+                    like_params.append(kind)
+                like_params.append(limit)
+                rows = conn.execute(like_sql, like_params).fetchall()
                 results = [Concept.from_row(r) for r in rows]
 
         return results
@@ -1110,12 +1133,18 @@ class ConceptStore:
         include_stale: bool = True,
         include_archived: bool = False,
         limit: int = 20,
+        kind: Optional[str] = "concept",
     ) -> List[Concept]:
         """Get concepts anchored to files under a directory prefix.
 
         Scans the JSON anchors array for each concept and returns those
         with at least one anchor matching the directory prefix. This is
         the L2 (on-demand scoped) retrieval layer for concepts.
+
+        Phase 125b / Investigation 2026-08-22 (B-sub): ``kind`` defaults to
+        ``"concept"`` so directory-scoped retrieval surfaces the curated
+        layer without leaking per-module rationale. Pass ``kind=None`` for
+        both layers.
         """
         conn = self._require_conn()
         prefix = directory.rstrip("/") + "/"
@@ -1130,6 +1159,9 @@ class ConceptStore:
             sql += " AND stale = 0"
         if not include_archived:
             sql += " AND status != 'archived'"
+        if kind is not None:
+            sql += " AND kind = ?"
+            params.append(kind)
 
         sql += """ ORDER BY
             CASE status WHEN 'active' THEN 0 WHEN 'seed' THEN 1 ELSE 2 END,

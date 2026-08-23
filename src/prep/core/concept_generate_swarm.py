@@ -313,19 +313,29 @@ def synthesize_concepts_swarm(
 
     # Write the freshness manifest so the next run can short-circuit
     # when rationale is unchanged AND prompts haven't been bumped.
-    # Best-effort.
-    try:
-        rcount, rts = _rationale_fingerprint(project_id)
-        _write_gen_swarm_manifest(idx_dir, {
-            "rationale_count": rcount,
-            "rationale_max_updated_at": rts,
-            "completed_at": time.time(),
-            "swarm_size": swarm_size,
-            "candidates_after_dedup": report.candidates_after_dedup,
-            "prompt_revision": _GEN_PROMPT_REVISION,
-        })
-    except Exception:
-        logger.debug("[GenSwarm] manifest write failed", exc_info=True)
+    # Investigation 2026-08-22 (C4): only write when we actually emitted
+    # candidates. Writing on an empty/failed run permanently locks out
+    # future runs because the freshness check sees a matching fingerprint
+    # and skips — even though the last run produced nothing.
+    if report.candidates_after_dedup > 0:
+        try:
+            rcount, rts = _rationale_fingerprint(project_id)
+            _write_gen_swarm_manifest(idx_dir, {
+                "rationale_count": rcount,
+                "rationale_max_updated_at": rts,
+                "completed_at": time.time(),
+                "swarm_size": swarm_size,
+                "candidates_after_dedup": report.candidates_after_dedup,
+                "prompt_revision": _GEN_PROMPT_REVISION,
+            })
+        except Exception:
+            logger.debug("[GenSwarm] manifest write failed", exc_info=True)
+    else:
+        logger.info(
+            "[GenSwarm] skipping manifest write — 0 candidates after dedup "
+            "(failed_workers=%d). Next run will not be short-circuited.",
+            len(report.failed_workers),
+        )
 
     # Telemetry.
     try:

@@ -32,6 +32,7 @@ def _concept(title: str, content: str = "Default content for the concept") -> di
         "confidence": 0.7,
         "anchors": ["src/foo.py"],
         "tags": ["test"],
+        "kind": "concept",
     }
 
 
