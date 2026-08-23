@@ -1101,8 +1101,16 @@ def seed_concepts_swarm(
     # canonical concepts surface (prep_concepts) doesn't surface them.
     # The new concept_synthesizer.py runs as Pass 3 to produce true
     # kind='concept' rows.
+    #
+    # Investigation 2026-08-22 (C1): tag fallback-merged entries with
+    # provenance='fallback_merge' so downstream passes and the dashboard
+    # can distinguish unvetted raw-worker rationales from synthesized
+    # ones. The synthesis-success path sets provenance='synthesized'.
+    _is_fallback = synthesis_was_empty and bool(result.worker_results)
+    _provenance = "fallback_merge" if _is_fallback else "synthesized"
     for entry in final_concepts:
         entry.setdefault("kind", "module_rationale")
+        entry.setdefault("provenance", _provenance)
     try:
         saved, _skipped = concept_store.save_many(project_id, final_concepts)
         concepts_created = saved
@@ -1123,6 +1131,7 @@ def seed_concepts_swarm(
                     anchors=c.get("anchors", []),
                     tags=c.get("tags", []),
                     kind="module_rationale",  # Phase 125b
+                    provenance=c.get("provenance", _provenance),  # Investigation 2026-08-22
                 )
                 concepts_created += 1
             except Exception as e2:

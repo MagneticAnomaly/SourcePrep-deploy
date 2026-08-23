@@ -148,6 +148,13 @@ class Concept:
     # ``module_rationale`` is the per-module observation layer
     # (~thousands per project, surfaced via prep_search).
     kind: str = "module_rationale"
+    # Investigation 2026-08-22 (4.4): user_edited guards save_many from
+    # clobbering human-curated or MCP-approved rows on pipeline re-runs.
+    user_edited: bool = False
+    # Investigation 2026-08-22 (C1): provenance distinguishes synthesized
+    # concepts from fallback-merged raw worker rationales so downstream
+    # passes and the dashboard can flag unvetted entries.
+    provenance: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -179,6 +186,10 @@ class Concept:
         d["superseded_by"] = self.superseded_by
         # Phase 125b: kind is always present
         d["kind"] = self.kind
+        # Investigation 2026-08-22
+        d["user_edited"] = self.user_edited
+        if self.provenance is not None:
+            d["provenance"] = self.provenance
         return d
 
     @staticmethod
@@ -208,6 +219,9 @@ class Concept:
             superseded_by=row["superseded_by"] if "superseded_by" in keys else None,
             # Phase 125b
             kind=row["kind"] if "kind" in keys and row["kind"] else "module_rationale",
+            # Investigation 2026-08-22
+            user_edited=bool(row["user_edited"]) if "user_edited" in keys else False,
+            provenance=row["provenance"] if "provenance" in keys else None,
         )
 
 
@@ -427,6 +441,27 @@ class ConceptStore:
         except sqlite3.OperationalError:
             pass
 
+        # Investigation 2026-08-22 (4.4): user_edited flag — when True,
+        # save_many skips overwriting the row so pipeline re-runs don't
+        # clobber human-curated or MCP-approved concepts.
+        try:
+            self._conn.execute(
+                "ALTER TABLE concepts ADD COLUMN user_edited INTEGER "
+                "NOT NULL DEFAULT 0"
+            )
+            self._conn.commit()
+        except sqlite3.OperationalError:
+            pass
+        # Investigation 2026-08-22 (C1): provenance — distinguishes
+        # synthesized concepts from fallback-merged raw worker rationales.
+        try:
+            self._conn.execute(
+                "ALTER TABLE concepts ADD COLUMN provenance TEXT DEFAULT NULL"
+            )
+            self._conn.commit()
+        except sqlite3.OperationalError:
+            pass
+
     def _require_conn(self) -> sqlite3.Connection:
         if self._conn is None:
             # Lazy-init from canonical data_dir. Necessary when this singleton
@@ -461,11 +496,16 @@ class ConceptStore:
         doc_links: Optional[List[Dict[str, str]]] = None,
         superseded_by: Optional[str] = None,
         kind: str = "module_rationale",  # Phase 125b: layer discriminator
+        provenance: Optional[str] = None,  # Investigation 2026-08-22 (C1)
     ) -> str:
         """Save a concept.  Returns the concept ID.
 
         If title matches an existing non-archived concept for the same
         project, the existing concept is updated instead of creating a dup.
+
+        Investigation 2026-08-22 (4.4): if the existing row has
+        ``user_edited=1``, the update is SKIPPED so pipeline re-runs
+        don't clobber human-curated or MCP-approved concepts.
         """
         conn = self._require_conn()
 
@@ -496,13 +536,22 @@ class ConceptStore:
             # "module_rationale" with identical titles are NOT
             # duplicates — they live in different layers.
             existing = conn.execute(
-                """SELECT id FROM concepts
+                """SELECT id, user_edited FROM concepts
                    WHERE project_id = ? AND title = ? AND status != 'archived'
                      AND kind = ?
                    LIMIT 1""",
                 (project_id, title, kind),
             ).fetchone()
             if existing:
+                # Investigation 2026-08-22 (4.4): skip overwrite when the
+                # existing row was human-curated / MCP-approved.
+                if bool(existing["user_edited"]):
+                    logger.info(
+                        "save() skipped user_edited concept %s ('%s') — "
+                        "preserving human curation",
+                        existing["id"], title,
+                    )
+                    return existing["id"]
                 # Update existing concept. Phase 125b: include status so a
                 # synthesizer/MCP re-save that promotes seed → active is
                 # reflected on the row. Without this the synthesizer's
@@ -515,11 +564,13 @@ class ConceptStore:
                            anchors = ?, tags = ?, cluster_id = ?,
                            updated_at = ?, stale = 0, stale_reason = NULL,
                            valid_from = ?, valid_to = NULL,
-                           assertion = ?, doc_links = ?, superseded_by = ?
+                           assertion = ?, doc_links = ?, superseded_by = ?,
+                           provenance = ?
                        WHERE id = ?""",
                     (content, category, status, confidence, anchors_json,
                      tags_json, cluster_id, now, now,
-                     assertion, doc_links_json, superseded_by, existing["id"]),
+                     assertion, doc_links_json, superseded_by,
+                     provenance, existing["id"]),
                 )
                 # Update FTS
                 try:
@@ -545,11 +596,11 @@ class ConceptStore:
                 """INSERT INTO concepts
                    (id, project_id, title, content, category, status,
                     confidence, anchors, tags, cluster_id, created_at, stale, valid_from,
-                    assertion, doc_links, superseded_by, kind)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)""",
+                    assertion, doc_links, superseded_by, kind, provenance)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)""",
                 (concept_id, project_id, title, content, category, status,
                  confidence, anchors_json, tags_json, cluster_id, now, now,
-                 assertion, doc_links_json, superseded_by, kind),
+                 assertion, doc_links_json, superseded_by, kind, provenance),
             )
             # FTS insert
             try:
@@ -633,6 +684,7 @@ class ConceptStore:
                 "assertion": raw.get("assertion") or "",
                 "doc_links_json": json.dumps(raw.get("doc_links") or []),
                 "kind": kind,
+                "provenance": raw.get("provenance"),
             })
 
         if not normalized:
@@ -699,7 +751,7 @@ class ConceptStore:
             # Phase 125b: scope to same kind so concept layer and
             # rationale layer don't accidentally collide.
             existing = conn.execute(
-                """SELECT id FROM concepts
+                """SELECT id, user_edited FROM concepts
                    WHERE project_id = ? AND title = ? AND status != 'archived'
                      AND kind = ?
                    LIMIT 1""",
@@ -707,6 +759,13 @@ class ConceptStore:
             ).fetchone()
 
             if existing:
+                # Investigation 2026-08-22 (4.4): skip overwrite when the
+                # existing row was human-curated / MCP-approved. Count it
+                # as saved (the row exists and is preserved) but don't
+                # touch its content/status/category.
+                if bool(existing["user_edited"]):
+                    saved += 1
+                    continue
                 # Phase 125b: include status so synthesizer T2/T3 → 'active'
                 # promotion takes effect on re-runs against existing rows.
                 # The previous UPDATE silently kept whatever status the
@@ -717,7 +776,8 @@ class ConceptStore:
                            anchors = ?, tags = ?, cluster_id = ?,
                            updated_at = ?, stale = 0, stale_reason = NULL,
                            valid_from = ?, valid_to = NULL,
-                           assertion = ?, doc_links = ?, superseded_by = NULL
+                           assertion = ?, doc_links = ?, superseded_by = NULL,
+                           provenance = ?
                        WHERE id = ?""",
                     (
                         content, entry["category"], entry["status"],
@@ -725,6 +785,7 @@ class ConceptStore:
                         entry["anchors_json"], entry["tags_json"],
                         entry["cluster_id"], now, now,
                         entry["assertion"], entry["doc_links_json"],
+                        entry.get("provenance"),
                         existing["id"],
                     ),
                 )
@@ -746,15 +807,16 @@ class ConceptStore:
                     """INSERT INTO concepts
                        (id, project_id, title, content, category, status,
                         confidence, anchors, tags, cluster_id, created_at,
-                        stale, valid_from, assertion, doc_links, superseded_by, kind)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL, ?)""",
+                        stale, valid_from, assertion, doc_links, superseded_by,
+                        kind, provenance)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL, ?, ?)""",
                     (
                         concept_id, project_id, title, content,
                         entry["category"], entry["status"], entry["confidence"],
                         entry["anchors_json"], entry["tags_json"],
                         entry["cluster_id"], now, now,
                         entry["assertion"], entry["doc_links_json"],
-                        entry["kind"],
+                        entry["kind"], entry.get("provenance"),
                     ),
                 )
                 try:
@@ -829,6 +891,9 @@ class ConceptStore:
         # Clear staleness on edit
         updates.append("stale = 0")
         updates.append("stale_reason = NULL")
+        # Investigation 2026-08-22 (4.4): mark the row as human-edited so
+        # pipeline re-runs via save_many don't clobber this curation.
+        updates.append("user_edited = 1")
 
         params.append(concept_id)
 

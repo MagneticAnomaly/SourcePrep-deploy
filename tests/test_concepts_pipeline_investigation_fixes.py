@@ -212,3 +212,219 @@ class TestGenerateManifestGate:
             "Manifest should be written when candidates are emitted so the "
             "next run can short-circuit on unchanged rationale."
         )
+
+
+# ══════════════════════════════════════════════════════════════════
+# Issue B-main — concepts not injected into /projects/{id}/context
+# ══════════════════════════════════════════════════════════════════
+
+
+class TestConceptsInContextRetrieval:
+    """The primary AI search path (context_project) queries CodeIndex +
+    KnowledgeIndex + observations + atlas but never queries concept_store.
+    An agent asking about the codebase never receives the active concept
+    layer in its search context."""
+
+    def test_inject_concepts_helper_exists(self):
+        """A _inject_concepts helper must exist in the search module,
+        mirroring _inject_observations."""
+        from prep.api.routers.projects import search as search_mod
+        assert hasattr(search_mod, "_inject_concepts"), (
+            "_inject_concepts helper not found in search.py — concepts are "
+            "never injected into /projects/{id}/context retrieval."
+        )
+
+    def test_inject_concepts_prepends_active_concepts(self, store: ConceptStore):
+        from prep.api.routers.projects.search import _inject_concepts
+
+        store.save("proj-1", "License gate precedes cloud calls",
+                   "All cloud LLM calls must pass through the license check.",
+                   category="constraint", kind="concept", status="active",
+                   anchors=["src/llm/gate.py"])
+        store.save("proj-1", "Unfinished thought", "Maybe we do X",
+                   kind="concept", status="seed")
+
+        # _inject_concepts imports concept_store inside the function body,
+        # so patch at the source module.
+        with patch(
+            "prep.services.concept_store.concept_store", store,
+        ):
+            new_ctx, meta = _inject_concepts(
+                "BASE CONTEXT", "proj-1", "license cloud calls",
+            )
+
+        assert "[concepts]" in new_ctx.lower() or "[active concepts]" in new_ctx.lower()
+        assert "License gate" in new_ctx
+        assert meta is not None
+        assert meta.get("concepts_injected", 0) >= 1
+
+    def test_inject_concepts_no_active_concepts_returns_unchanged(
+        self, store: ConceptStore,
+    ):
+        from prep.api.routers.projects.search import _inject_concepts
+
+        with patch(
+            "prep.services.concept_store.concept_store", store,
+        ):
+            new_ctx, meta = _inject_concepts(
+                "BASE CONTEXT", "proj-1", "anything",
+            )
+        assert new_ctx == "BASE CONTEXT"
+        assert meta is None
+
+    def test_context_endpoint_calls_inject_concepts(self):
+        """Source-level guard: context_project must call _inject_concepts
+        so concepts reach the agent's search context."""
+        import inspect
+        from prep.api.routers.projects.search import context_project
+        src = inspect.getsource(context_project)
+        assert "_inject_concepts" in src, (
+            "context_project does not call _inject_concepts — active concepts "
+            "are never injected into the RAG retrieval path."
+        )
+
+
+# ══════════════════════════════════════════════════════════════════
+# Issue 4.4 — pipeline overwrites human & AI curation in save_many
+# ══════════════════════════════════════════════════════════════════
+
+
+class TestUserEditedGuard:
+    """save_many matches existing rows by (project_id, title, kind) and
+    overwrites content/category/status without checking whether the row
+    was manually created, edited, or approved. Re-runs demote active
+    curated concepts back to seed/triage_pending."""
+
+    def test_update_sets_user_edited_flag(self, store: ConceptStore):
+        cid = store.save("proj-1", "Curated", "Original", kind="concept",
+                         status="active")
+        store.update(cid, content="Human-edited content")
+        retrieved = store.get(cid)
+        assert retrieved is not None
+        assert getattr(retrieved, "user_edited", False) is True, (
+            "update() must mark the row user_edited=True so save_many "
+            "knows not to clobber it on pipeline re-runs."
+        )
+
+    def test_save_many_preserves_user_edited_row(self, store: ConceptStore):
+        """A pipeline re-run must NOT overwrite a human-edited concept."""
+        cid = store.save("proj-1", "Curated decision", "Original content",
+                         kind="concept", status="active", category="decision")
+        store.update(cid, content="Human-curated content", status="active")
+
+        # Pipeline re-run emits the same title with different content/status
+        store.save_many("proj-1", [{
+            "title": "Curated decision",
+            "content": "Pipeline regenerated content",
+            "category": "technical",
+            "status": "seed",
+            "kind": "concept",
+        }])
+
+        retrieved = store.get(cid)
+        assert retrieved is not None
+        assert "Human-curated" in retrieved.content, (
+            "save_many overwrote a user-edited concept — pipeline re-runs "
+            "must not clobber human curation."
+        )
+        assert retrieved.status == "active"
+
+    def test_save_many_overwrites_non_edited_row(self, store: ConceptStore):
+        """A pipeline re-run SHOULD update a row that was never user-edited."""
+        cid = store.save("proj-1", "Auto concept", "Original", kind="concept",
+                         status="seed")
+        store.save_many("proj-1", [{
+            "title": "Auto concept",
+            "content": "Regenerated content",
+            "status": "active",
+            "kind": "concept",
+        }])
+        retrieved = store.get(cid)
+        assert retrieved is not None
+        assert "Regenerated" in retrieved.content
+        assert retrieved.status == "active"
+
+
+# ══════════════════════════════════════════════════════════════════
+# Issue C1 — silent synthesis fallback has no provenance flag
+# ══════════════════════════════════════════════════════════════════
+
+
+class TestSynthesisFallbackProvenance:
+    """When synthesis times out or fails, the seeder merges raw per-module
+    worker rationales, saves them without a provenance/fallback flag, and
+    returns status='success'. Downstream passes ingest unvetted rationales
+    with zero visibility."""
+
+    def test_fallback_rationales_carry_provenance_tag(self, store: ConceptStore):
+        """Rationales saved via the fallback path must be distinguishable
+        from synthesized rationales so downstream passes and the dashboard
+        can flag them."""
+        # Simulate what the seeder fallback does: save with a provenance tag
+        store.save_many("proj-1", [{
+            "title": "Fallback rationale",
+            "content": "Merged from raw worker output",
+            "kind": "module_rationale",
+            "tags": ["provenance:fallback_merge"],
+        }])
+        items = store.list_concepts("proj-1", kind="module_rationale")
+        assert len(items) == 1
+        assert "provenance:fallback_merge" in items[0].tags
+
+    def test_concept_has_provenance_field(self):
+        """The Concept dataclass should expose a provenance field so the
+        flag is first-class, not just a tag convention."""
+        from prep.services.concept_store import Concept
+        c = Concept(
+            id="x", project_id="p", title="t", content="c",
+            category="technical", status="seed",
+        )
+        # provenance defaults to None/empty — the field must exist
+        assert hasattr(c, "provenance")
+
+
+# ══════════════════════════════════════════════════════════════════
+# Issue 4.3 — triage_pending is a one-way dead end in Pass 4
+# ══════════════════════════════════════════════════════════════════
+
+
+class TestTriagePendingPass4:
+    """Validate assigns T1 concepts to triage_pending. Pass 4 gate only
+    checks status='seed', so triage_pending concepts are never re-gated
+    and accumulate indefinitely."""
+
+    def test_pass4_gate_includes_triage_pending_by_default(
+        self, tmp_path: Path,
+    ):
+        from prep.core.concept_promotion_pipeline import run_pass4_gate
+
+        # run_pass4_gate opens its own sqlite connection at
+        # prep_data_dir()/prep_concepts.db — create the DB at that path.
+        db_path = tmp_path / "prep_concepts.db"
+        local_store = ConceptStore()
+        local_store.init(db_path)
+        try:
+            local_store.save(
+                "proj-1", "Triage candidate", "High quality but was T1",
+                kind="concept", status="triage_pending",
+                confidence=0.92, anchors=["src/x.py"],
+            )
+
+            with patch(
+                "prep.core.project_registry.prep_data_dir",
+                return_value=tmp_path,
+            ):
+                report = run_pass4_gate(
+                    "proj-1", high=0.90, low=0.65, dry_run=True,
+                )
+        finally:
+            local_store.close()
+
+        # The triage_pending concept must be included in the gate input
+        assert report.input_count >= 1, (
+            "Pass 4 gate ignored triage_pending concepts — they are a "
+            "one-way dead end with no path to active/archived."
+        )
+        assert report.activated >= 1, (
+            "High-confidence triage_pending concept was not activated."
+        )

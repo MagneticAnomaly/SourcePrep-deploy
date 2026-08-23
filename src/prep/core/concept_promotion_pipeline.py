@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Literal, Optional
+from typing import Iterable, Literal, Optional, Sequence, Union
 
 from prep.core.concept_clustering import (
     ClusterReport,
@@ -403,15 +403,21 @@ def run_pass4_gate(
     idx_dir: Optional[Path] = None,
     high: float = DEFAULT_GATE_HIGH_CONFIDENCE,
     low: float = DEFAULT_GATE_LOW_CONFIDENCE,
-    status_filter: str = "seed",
+    status_filter: Union[str, Sequence[str]] = ("seed", "triage_pending"),
     kind: str = "concept",
     dry_run: bool = False,
 ) -> Pass4Report:
     """Apply confidence-based gate to refined concepts.
 
-    Default reads ``status='seed' AND kind='concept'`` — the curated
-    cross-cutting layer left at seed by the synthesizer (T1 tier),
-    or by Validate (Phase 125c) when a candidate doesn't auto-promote.
+    Default reads ``status IN ('seed','triage_pending') AND kind='concept'``
+    — the curated cross-cutting layer left at seed by the synthesizer
+    (T1 tier), or by Validate (Phase 125c) when a candidate doesn't
+    auto-promote, PLUS concepts previously sent to triage_pending by
+    an earlier gate run. Investigation 2026-08-22 (4.3): triage_pending
+    was a one-way dead end because the gate only read status='seed';
+    now both statuses are re-gated so high-confidence triage_pending
+    concepts can be activated and low-confidence ones archived.
+
     The synthesizer's tier mapping is T1=0.30 / T2=0.65 / T3=0.92, so
     with default thresholds T1 archives, mid-band stays at triage,
     and T3 promotes to active. T2/T3 already at status='active' from
@@ -426,7 +432,9 @@ def run_pass4_gate(
         idx_dir: telemetry log location; resolved if None.
         high / low: confidence thresholds. high=0.90 → active,
             low=0.65 → triage_pending; below low → archived.
-        status_filter: which status to pull for gating. Default 'seed'.
+        status_filter: which status(es) to pull for gating. Default
+            ('seed', 'triage_pending'). Pass a single string or a
+            sequence.
         kind: which layer to gate. Default 'concept' (the curated layer
             Phase 125c/b emits). Pass 'module_rationale' for rationale
             or None for both.
@@ -450,9 +458,23 @@ def run_pass4_gate(
         raise RuntimeError(
             f"concept DB not found at {db_path}; ensure the daemon has run at least once",
         )
-    refined = load_concepts_for_clustering(
-        str(db_path), project_id, status=status_filter, kind=kind,
-    )
+
+    # Investigation 2026-08-22 (4.3): load both 'seed' and
+    # 'triage_pending' so the latter is not a dead end. Backwards-
+    # compatible: a single string is still accepted.
+    statuses: Sequence[str]
+    if isinstance(status_filter, str):
+        statuses = (status_filter,)
+    else:
+        statuses = tuple(status_filter)
+
+    refined: list = []
+    for st in statuses:
+        refined.extend(
+            load_concepts_for_clustering(
+                str(db_path), project_id, status=st, kind=kind,
+            )
+        )
 
     actions = decide_pass4_actions(refined, high=high, low=low)
 

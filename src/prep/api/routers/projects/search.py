@@ -93,6 +93,62 @@ _OBS_MAX_CHARS = 500
 _OBS_MAX_COUNT = 3
 
 
+# ── Investigation 2026-08-22 (B-main): Concept injection ──────────
+# Prepend relevant active concepts as a [active concepts] section so
+# the agent's search context includes the curated "why" layer that
+# concept_store holds but the RAG path never queried.
+_CONCEPT_MAX_CHARS = 1200
+_CONCEPT_MAX_COUNT = 5
+
+
+def _inject_concepts(
+    context_str: str,
+    project_id: str,
+    query: str,
+) -> tuple:
+    """Prepend relevant active concepts to the context string.
+
+    Returns (new_context_str, concepts_meta_dict_or_None).
+    Investigation 2026-08-22 (B-main): the primary AI search path never
+    queried concept_store, so agents never received the active concept
+    layer. This mirrors _inject_observations but for concepts.
+    """
+    try:
+        from prep.services.concept_store import concept_store as _cs
+        results = _cs.search(
+            project_id, query, limit=_CONCEPT_MAX_COUNT,
+            kind="concept",
+        )
+        # Filter to active concepts only — seed/triage are not yet curated
+        # enough to inject into agent context.
+        active = [c for c in results if c.status == "active"]
+        if not active:
+            return context_str, None
+
+        lines: list = []
+        chars = 0
+        included = 0
+        for c in active:
+            content = (c.content or "")[:200]
+            cat = f"({c.category}) " if c.category != "technical" else ""
+            line = f"- {cat}{c.title}: {content}"
+            if chars + len(line) > _CONCEPT_MAX_CHARS:
+                break
+            lines.append(line)
+            chars += len(line)
+            included += 1
+
+        if not lines:
+            return context_str, None
+
+        section = "[active concepts]\n" + "\n".join(lines) + "\n\n---\n\n"
+        meta = {"concepts_injected": included}
+        return section + context_str, meta
+
+    except Exception:
+        return context_str, None
+
+
 def _inject_observations(
     context_str: str,
     project_id: str,
@@ -1029,6 +1085,10 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             if atlas_meta:
                 resp["atlas"] = atlas_meta
 
+        # Investigation 2026-08-22 (B-main): inject active concepts
+        resp["context"], _concept_meta = _inject_concepts(resp["context"], project_id, req.query)
+        if _concept_meta:
+            resp["concepts"] = _concept_meta
         # Observations injection
         resp["context"], _obs_meta = _inject_observations(resp["context"], project_id, req.query)
         if _obs_meta:
@@ -1253,6 +1313,10 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             if atlas_meta:
                 resp["atlas"] = atlas_meta
         # Phase 39: Inject relevant observations as session-memory
+        # Investigation 2026-08-22 (B-main): inject active concepts
+        resp["context"], _concept_meta = _inject_concepts(resp["context"], project_id, req.query)
+        if _concept_meta:
+            resp["concepts"] = _concept_meta
         resp["context"], _obs_meta = _inject_observations(resp["context"], project_id, req.query)
         if _obs_meta:
             resp["session_memory"] = _obs_meta
@@ -1345,6 +1409,12 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
         if isinstance(result, dict) and "query_coverage" in result:
             resp_data["query_coverage"] = result["query_coverage"]
         # Phase 39: Inject relevant observations as session-memory
+        # Investigation 2026-08-22 (B-main): inject active concepts
+        resp_data["context"], _concept_meta = _inject_concepts(resp_data["context"], project_id, req.query)
+        if _concept_meta:
+            resp_data["concepts"] = _concept_meta
+            resp_data["total_chars"] = len(resp_data["context"])
+            resp_data["estimated_tokens"] = resp_data["total_chars"] // 4
         resp_data["context"], _obs_meta = _inject_observations(resp_data["context"], project_id, req.query)
         if _obs_meta:
             resp_data["session_memory"] = _obs_meta
@@ -1407,6 +1477,12 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
         if atlas_meta:
             resp_data["atlas"] = atlas_meta
     # Phase 39: Inject relevant observations as session-memory
+    # Investigation 2026-08-22 (B-main): inject active concepts
+    resp_data["context"], _concept_meta = _inject_concepts(resp_data["context"], project_id, req.query)
+    if _concept_meta:
+        resp_data["concepts"] = _concept_meta
+        resp_data["total_chars"] = len(resp_data["context"])
+        resp_data["estimated_tokens"] = resp_data["total_chars"] // 4
     resp_data["context"], _obs_meta = _inject_observations(resp_data["context"], project_id, req.query)
     if _obs_meta:
         resp_data["session_memory"] = _obs_meta

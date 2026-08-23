@@ -183,7 +183,7 @@ F2_SITES: list[tuple[object, int]] = [
     # llm.generate site +9 (1420 → 1429).
     (concept_seeder_mod, 341),
     (concept_seeder_mod, 933),
-    (concept_seeder_mod, 1429),
+    (concept_seeder_mod, 1438),
 ]
 
 
