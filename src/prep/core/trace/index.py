@@ -35,6 +35,7 @@ class TraceIndex:
         self.edges_path = self.index_dir / "trace_edges.jsonl"
         self.inferred_edges_path = self.index_dir / "trace_inferred_edges.jsonl"
         self.lsp_edges_path = self.index_dir / "trace_lsp_edges.jsonl"
+        self.external_edges_path = self.index_dir / "trace_external_edges.jsonl"
 
         self._manifest: Optional[Dict[str, Any]] = None
         self._nodes: Dict[str, Dict[str, Any]] = {}
@@ -74,6 +75,34 @@ class TraceIndex:
                 self._manifest = json.load(f)
             self._loaded = True
             logger.debug("Loaded trace index via Rust engine: %d nodes", self._rust_handle.node_count())
+
+            # Load external edges (not handled by Rust engine)
+            self._edges = []
+            self._edges_by_source = {}
+            self._edges_by_target = {}
+            if self.external_edges_path.exists():
+                try:
+                    with open(self.external_edges_path, "r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                edge = json.loads(line)
+                                self._edges.append(edge)
+                                src = edge["source"]
+                                tgt = edge["target"]
+                                self._edges_by_source.setdefault(src, []).append(edge)
+                                self._edges_by_target.setdefault(tgt, []).append(edge)
+                    # Also load nodes into Python dict for external edge resolution
+                    if not self._nodes and self.nodes_path.exists():
+                        with open(self.nodes_path, "r", encoding="utf-8") as f:
+                            for line in f:
+                                line = line.strip()
+                                if line:
+                                    node = json.loads(line)
+                                    self._nodes[node["id"]] = node
+                except Exception as e:
+                    logger.warning("Failed to load external edges (Rust engine): %s", e)
+
             return True
         except Exception as e:
             logger.error(f"Rust engine load failed, falling back to Python: {e}")
@@ -139,6 +168,22 @@ class TraceIndex:
                                 self._edges_by_target.setdefault(tgt, []).append(edge)
                 except Exception as e:
                     logger.warning("Failed to load LSP edges: %s", e)
+
+            # Load external edges (posted by external tools like Halbert's config extractor)
+            if self.external_edges_path.exists():
+                try:
+                    with open(self.external_edges_path, "r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                edge = json.loads(line)
+                                self._edges.append(edge)
+                                src = edge["source"]
+                                tgt = edge["target"]
+                                self._edges_by_source.setdefault(src, []).append(edge)
+                                self._edges_by_target.setdefault(tgt, []).append(edge)
+                except Exception as e:
+                    logger.warning("Failed to load external edges: %s", e)
 
             self._loaded = True
             return True
@@ -294,11 +339,43 @@ class TraceIndex:
             result = self._rust_handle.get_neighbors(
                 node_id, direction=direction, edge_kinds=edge_kinds, max_nodes=max_nodes
             )
+            in_edges = [e.to_dict() for e in result.in_edges]
+            out_edges = [e.to_dict() for e in result.out_edges]
+            in_nodes = [n.to_dict() for n in result.in_nodes]
+            out_nodes = [n.to_dict() for n in result.out_nodes]
+
+            # Merge external edges (not stored in Rust engine)
+            if direction in ("in", "both"):
+                for edge in self._edges_by_target.get(node_id, []):
+                    if edge_kinds and edge["kind"] not in edge_kinds:
+                        continue
+                    if any(e.get("source") == edge["source"] and e.get("kind") == edge["kind"] for e in in_edges):
+                        continue
+                    in_edges.append(edge)
+                    src_node = self._nodes.get(edge["source"])
+                    if src_node:
+                        in_nodes.append(src_node)
+            if direction in ("out", "both"):
+                for edge in self._edges_by_source.get(node_id, []):
+                    if edge_kinds and edge["kind"] not in edge_kinds:
+                        continue
+                    if any(e.get("target") == edge["target"] and e.get("kind") == edge["kind"] for e in out_edges):
+                        continue
+                    out_edges.append(edge)
+                    tgt_node = self._nodes.get(edge["target"])
+                    if tgt_node:
+                        out_nodes.append(tgt_node)
+
+            in_edges = in_edges[:max_nodes]
+            out_edges = out_edges[:max_nodes]
+            in_nodes = in_nodes[:max_nodes]
+            out_nodes = out_nodes[:max_nodes]
+
             return {
-                "in_edges": [e.to_dict() for e in result.in_edges],
-                "out_edges": [e.to_dict() for e in result.out_edges],
-                "in_nodes": [n.to_dict() for n in result.in_nodes],
-                "out_nodes": [n.to_dict() for n in result.out_nodes],
+                "in_edges": in_edges,
+                "out_edges": out_edges,
+                "in_nodes": in_nodes,
+                "out_nodes": out_nodes,
             }
 
         in_edges: List[Dict[str, Any]] = []

@@ -96,6 +96,8 @@ TRACE_FILES = [
     #     background job, sibling to the 15-stage pipeline)
     "concept_synthesis_manifest.json",
     "deep_analysis_manifest.json",
+    "trace_lsp_edges.jsonl",
+    "trace_external_edges.jsonl",
 ]
 
 INDEX_FILES = [
@@ -172,3 +174,16 @@ class LSPEdge(BaseModel):
 
 class LSPEdgesRequest(BaseModel):
     edges: List[LSPEdge]
+
+
+class ExternalEdge(BaseModel):
+    source: str
+    target: str
+    kind: str
+    origin: str = "external"
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ExternalEdgesRequest(BaseModel):
+    edges: List[ExternalEdge]
+    replace_origin: Optional[str] = None

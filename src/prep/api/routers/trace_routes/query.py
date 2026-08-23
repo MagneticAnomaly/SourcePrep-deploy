@@ -25,7 +25,7 @@ from prep.core.project_registry import project_index_dir
 from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
 from prep.core.trace import compute_trace_coverage
 
-from .shared import TraceSearchRequest, TraceIgnoreRequest, LSPEdge, LSPEdgesRequest
+from .shared import TraceSearchRequest, TraceIgnoreRequest, LSPEdge, LSPEdgesRequest, ExternalEdge, ExternalEdgesRequest
 
 logger = logging.getLogger(__name__)
 
@@ -599,6 +599,117 @@ def ingest_lsp_edges(
         "rejected_unknown_node": rejected_unknown,
         "rejected_duplicate": rejected_dup,
         "total_lsp_edges": len(existing),
+    })
+
+
+# ═════════════════════════════════════════════════════════════════
+# External Edge Ingestion (config dependency edges, custom tools, etc.)
+# ═════════════════════════════════════════════════════════════════
+
+@router.post("/projects/{project_id}/trace/external-edges")
+def ingest_external_edges(
+    project_id: str,
+    req: ExternalEdgesRequest,
+) -> Dict[str, Any]:
+    """Accept edges from external tools (e.g. Halbert's config dependency extractor).
+
+    Edges are validated (source/target must be known file nodes), deduped
+    against existing edges, and appended to ``trace_external_edges.jsonl``.
+    The TraceIndex picks them up on next load.
+
+    If ``replace_origin`` is set, all existing edges with that origin value
+    are removed from the file before appending the new edges. This allows
+    callers to push a fresh replacement set (e.g. after a config change)
+    without accumulating stale edges.
+    """
+    from prep.server import _require_project, _get_project_trace_index
+
+    proj = _require_project(project_id)
+    trace_idx = _get_project_trace_index(proj)
+    if not trace_idx.exists():
+        raise ApiException(
+            status_code=409, code="TRACE_NOT_BUILT",
+            message="Trace index has not been built yet",
+        )
+    if not trace_idx.is_loaded():
+        trace_idx.load()
+
+    idx_dir = project_index_dir(proj)
+    ext_path = idx_dir / "trace_external_edges.jsonl"
+
+    # Load existing external edges
+    existing_lines: List[str] = []
+    existing_keys: set = set()
+    if ext_path.exists():
+        try:
+            with open(ext_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    e = json.loads(line)
+                    key = (e.get("source", ""), e.get("target", ""), e.get("kind", ""))
+                    existing_keys.add(key)
+                    existing_lines.append(line)
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    # If replace_origin is set, filter out existing edges with that origin
+    if req.replace_origin:
+        kept_lines: List[str] = []
+        for line in existing_lines:
+            try:
+                e = json.loads(line)
+                if e.get("origin") == req.replace_origin:
+                    key = (e.get("source", ""), e.get("target", ""), e.get("kind", ""))
+                    existing_keys.discard(key)
+                    continue
+                kept_lines.append(line)
+            except json.JSONDecodeError:
+                kept_lines.append(line)
+        existing_lines = kept_lines
+
+    accepted = 0
+    rejected_unknown = 0
+    rejected_dup = 0
+
+    new_edges: List[Dict[str, Any]] = []
+    for edge in req.edges:
+        src_node = trace_idx.get_node(edge.source)
+        tgt_node = trace_idx.get_node(edge.target)
+        if src_node is None or tgt_node is None:
+            rejected_unknown += 1
+            continue
+
+        key = (edge.source, edge.target, edge.kind)
+        if key in existing_keys:
+            rejected_dup += 1
+            continue
+
+        existing_keys.add(key)
+        new_edges.append({
+            "source": edge.source,
+            "target": edge.target,
+            "kind": edge.kind,
+            "origin": edge.origin,
+            **({"metadata": edge.metadata} if edge.metadata else {}),
+        })
+        accepted += 1
+
+    # Rewrite the file with kept + new edges
+    all_lines = existing_lines + [json.dumps(e) for e in new_edges]
+    if all_lines:
+        with open(ext_path, "w", encoding="utf-8") as f:
+            for line in all_lines:
+                f.write(line + "\n")
+    elif ext_path.exists():
+        ext_path.unlink()
+
+    return ok({
+        "accepted": accepted,
+        "rejected_unknown_node": rejected_unknown,
+        "rejected_duplicate": rejected_dup,
+        "total_external_edges": len(existing_keys),
     })
 
 

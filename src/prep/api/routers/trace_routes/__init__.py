@@ -29,4 +29,6 @@ from .shared import (  # noqa: F401
     DeepeningRunRequest,
     LSPEdge,
     LSPEdgesRequest,
+    ExternalEdge,
+    ExternalEdgesRequest,
 )
