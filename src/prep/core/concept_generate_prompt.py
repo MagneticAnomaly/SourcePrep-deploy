@@ -50,6 +50,9 @@ class WorkerPayload:
     full_doc_excerpts: list[DiscoveredDoc] = field(default_factory=list)
     doc_headings_only: list[DiscoveredDoc] = field(default_factory=list)
     rationale_in_scope: list[dict] = field(default_factory=list)
+    # Investigation 2026-08-22 (A): source code slices for anchor files
+    # so workers can verify their assertions against real code.
+    source_slices: dict[str, str] = field(default_factory=dict)
 
 
 def build_worker_payload(
@@ -87,6 +90,8 @@ def build_worker_payload(
         full_doc_excerpts=full_docs,
         doc_headings_only=headings_docs,
         rationale_in_scope=rationale,
+        # Investigation 2026-08-22 (A)
+        source_slices=dict(getattr(grounding, "source_slices", {})),
     )
 
 
@@ -219,6 +224,18 @@ def build_generate_user_prompt(payload: WorkerPayload) -> str:
             parts.append(
                 f"  - [{a.get('severity','?')}] {a.get('name')}"
             )
+        parts.append("")
+
+    # Investigation 2026-08-22 (A): include source code slices for anchor
+    # files so workers can verify their assertions against real code.
+    if payload.source_slices:
+        parts.append(
+            f"SOURCE CODE SLICES ({len(payload.source_slices)} files, "
+            "first ~20 lines each):"
+        )
+        for path, slice_text in list(payload.source_slices.items())[:15]:
+            parts.append(f"--- {path} ---")
+            parts.append(slice_text[:800])
         parts.append("")
 
     parts.append(

@@ -139,6 +139,11 @@ class Grounding:
     antibody_patterns: list[dict] = field(default_factory=list)
     rationale_clusters: list[dict] = field(default_factory=list)
     top_md_docs: list[dict] = field(default_factory=list)
+    # Investigation 2026-08-22 (A): source code slices for anchor files
+    # so workers can verify their assertions against real code instead
+    # of hallucinating about files they've never seen. Maps relative
+    # path → ±20-line content slice.
+    source_slices: dict[str, str] = field(default_factory=dict)
 
 
 def load_grounding(
@@ -146,6 +151,7 @@ def load_grounding(
     *,
     idx_dir: Path,
     project_name: str = "",
+    project_root: Optional[Path] = None,
     # Phase 125c post-review: rationale_top_n bumped 50 -> 200 so that
     # after Generate's per-category scope filter (3-axis fan-out divides
     # the rationale across workers), each worker still sees a meaningful
@@ -154,8 +160,17 @@ def load_grounding(
     audit_top_n: int = 12,
     spaghetti_top_n: int = 10,
     docs_top_n: int = 10,
+    # Investigation 2026-08-22 (A): max source slices to load.
+    source_slice_max: int = 30,
+    source_slice_lines: int = 20,
 ) -> Grounding:
-    """Load every upstream artifact into a single struct for synthesis."""
+    """Load every upstream artifact into a single struct for synthesis.
+
+    Investigation 2026-08-22 (A): now also loads ±``source_slice_lines``
+    line source code slices for anchor files referenced by rationale
+    clusters, so workers can verify their assertions against real code.
+    Requires ``project_root`` to resolve relative anchor paths.
+    """
     g = Grounding(project_name=project_name)
 
     # Atlas summary + segments
@@ -281,6 +296,46 @@ def load_grounding(
         ]
     except Exception:
         pass
+
+    # Investigation 2026-08-22 (A): load source code slices for anchor
+    # files referenced by rationale clusters. Workers are asked to emit
+    # grep-falsifiable assertions about source files, but until now they
+    # never saw the actual source code — leading to hallucinated
+    # assertions. We pull ±source_slice_lines around the first non-trivial
+    # line of each anchor file, capped at source_slice_max files.
+    if project_root is not None:
+        seen_paths: set[str] = set()
+        for rc in g.rationale_clusters:
+            for anchor in (rc.get("anchors") or []):
+                if len(g.source_slices) >= source_slice_max:
+                    break
+                anchor_str = str(anchor)
+                # Normalize: anchors may be relative or absolute
+                candidate = Path(anchor_str)
+                if not candidate.is_absolute():
+                    candidate = project_root / anchor_str
+                rel_key = str(candidate.relative_to(project_root)) if (
+                    candidate.is_absolute() and str(candidate).startswith(str(project_root))
+                ) else anchor_str
+                if rel_key in seen_paths:
+                    continue
+                try:
+                    if candidate.is_file():
+                        text = candidate.read_text(errors="replace")
+                        lines = text.splitlines()
+                        # Take first N non-empty lines (the meaningful
+                        # top-of-file context — imports, class/function
+                        # signatures, module docstring).
+                        picked: list[str] = []
+                        for line in lines:
+                            if line.strip():
+                                picked.append(line)
+                            if len(picked) >= source_slice_lines:
+                                break
+                        g.source_slices[rel_key] = "\n".join(picked)
+                        seen_paths.add(rel_key)
+                except Exception:
+                    pass
 
     return g
 
@@ -714,6 +769,7 @@ def synthesize_concepts(
     llm: Any = None,
     idx_dir: Optional[Path] = None,
     project_name: str = "",
+    project_root: Optional[Path] = None,
     dry_run: bool = False,
     force: bool = False,
 ) -> SynthesisReport:
@@ -779,6 +835,7 @@ def synthesize_concepts(
 
     grounding = load_grounding(
         project_id, idx_dir=idx_dir, project_name=project_name,
+        project_root=project_root,
     )
     report.grounding_summary = {
         "audit_findings": len(grounding.audit_findings),

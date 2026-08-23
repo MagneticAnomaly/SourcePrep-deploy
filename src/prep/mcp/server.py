@@ -569,6 +569,44 @@ class MCPServer:
             raise DaemonError(f"Daemon returned invalid JSON: {resp.text}")
         return self._unwrap_envelope(payload_out)
 
+    async def _api_patch(self, path: str) -> Any:
+        """PATCH request to daemon API. Investigation 2026-08-22 (C2/C3):
+        needed for approve/archive concept actions."""
+        client = await self._get_client()
+        if not path.startswith("/"):
+            path = "/" + path
+        url = f"{self.daemon_url}{path}"
+        logger.debug(f"PATCH {url}")
+
+        headers: Dict[str, str] = {}
+        ipc_token = os.environ.get("PREP_DAEMON_TOKEN")
+        if ipc_token:
+            headers["Authorization"] = f"Bearer {ipc_token}"
+
+        try:
+            resp = await client.patch(url, headers=headers)
+            resp.raise_for_status()
+        except httpx.ConnectError:
+            raise DaemonUnavailableError(
+                f"Cannot connect to Prep daemon at {self.daemon_url}\n\n"
+                f"Start the daemon in a terminal:\n"
+                f"  prep serve"
+            )
+        except httpx.HTTPStatusError as e:
+            try:
+                self._unwrap_envelope(e.response.json())
+            except DaemonError as de:
+                raise de
+            except Exception:
+                pass
+            raise DaemonError(f"Daemon returned {e.response.status_code}: {e.response.text}")
+
+        try:
+            payload_out = resp.json()
+        except Exception:
+            raise DaemonError(f"Daemon returned invalid JSON: {resp.text}")
+        return self._unwrap_envelope(payload_out)
+
     def _best_project_match(
         self, projects: List[Dict[str, Any]], paths: List[str]
     ) -> Optional[str]:
@@ -2009,6 +2047,9 @@ class MCPServer:
         status: Optional[str] = None,
         as_of: Optional[float] = None,  # Phase 80: temporal queries
         scope: Optional[str] = None,  # Phase 120: named scope filter
+        concept_id: Optional[str] = None,  # Investigation 2026-08-22
+        question_id: Optional[str] = None,  # Investigation 2026-08-22
+        answer: Optional[str] = None,  # Investigation 2026-08-22
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get or save codebase concepts — high-level 'why' knowledge.
@@ -2019,8 +2060,90 @@ class MCPServer:
 
         action='get' (default): List or search concepts.
         action='save': Create or update a concept.
+        action='questions': List clarifying questions.
+        action='answer': Answer a clarifying question (creates a concept).
+        action='approve': Promote a seed concept to active.
+        action='archive': Archive a concept.
         """
         project_id = await self._resolve_project_id(override=project_override)
+
+        # Investigation 2026-08-22 (C2/C3): new curation actions that
+        # mirror the existing REST endpoints in concepts.py.
+        if action == "questions":
+            data = await self._api_get(
+                f"/projects/{project_id}/concepts/questions"
+            )
+            questions = []
+            if isinstance(data, dict):
+                questions = data.get("questions", [])
+            md_lines = [f"## Clarifying Questions ({len(questions)})\n"]
+            for q in questions:
+                md_lines.append(
+                    f"- **{q.get('id','')}**: {q.get('question','')}"
+                )
+                if q.get("target_module"):
+                    md_lines.append(f"  _module: {q['target_module']}_")
+            return {
+                "questions": questions,
+                "count": len(questions),
+                "project_id": project_id,
+                "_to_markdown": "\n".join(md_lines),
+            }
+
+        if action == "answer":
+            if not question_id or not answer:
+                raise InvalidParamsError(
+                    "Both 'question_id' and 'answer' are required when "
+                    "action='answer'"
+                )
+            data = await self._api_post(
+                f"/projects/{project_id}/concepts/questions/{question_id}/answer",
+                {"answer": answer},
+            )
+            msg = f"Question {question_id} answered."
+            if isinstance(data, dict) and data.get("concept_id"):
+                msg += f" Created concept {data['concept_id']}."
+            return {
+                "answered": True,
+                "question_id": question_id,
+                "project_id": project_id,
+                "message": msg,
+                "_to_markdown": msg,
+            }
+
+        if action == "approve":
+            if not concept_id:
+                raise InvalidParamsError(
+                    "'concept_id' is required when action='approve'"
+                )
+            await self._api_patch(
+                f"/projects/{project_id}/concepts/{concept_id}/approve"
+            )
+            msg = f"Concept {concept_id} approved (promoted to active)."
+            return {
+                "approved": True,
+                "concept_id": concept_id,
+                "project_id": project_id,
+                "message": msg,
+                "_to_markdown": msg,
+            }
+
+        if action == "archive":
+            if not concept_id:
+                raise InvalidParamsError(
+                    "'concept_id' is required when action='archive'"
+                )
+            await self._api_patch(
+                f"/projects/{project_id}/concepts/{concept_id}/archive"
+            )
+            msg = f"Concept {concept_id} archived."
+            return {
+                "archived": True,
+                "concept_id": concept_id,
+                "project_id": project_id,
+                "message": msg,
+                "_to_markdown": msg,
+            }
 
         if action == "save":
             if not title or not content:

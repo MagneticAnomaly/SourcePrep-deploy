@@ -80,6 +80,10 @@ class DirectMCPServer:
         self.ollama_url = ollama_url
         self.model = model
         self._injected_embedder = embedder  # For testing without Ollama
+        # Investigation 2026-08-22 (C3): project_id for prep_concepts.
+        # Direct mode doesn't have a project registry; use the repo dir
+        # name as a stable identifier.
+        self.project_id = self.repo_root.name
 
         self._index: Optional[CodeIndex] = None
         self._trace_index: Optional[TraceIndex] = None
@@ -457,6 +461,21 @@ class DirectMCPServer:
                             pass  # Direct mode: silent fallback
             elif name == "hi_prep":
                 result = await self.tool_hi()
+            elif name == "prep_concepts":
+                # Investigation 2026-08-22 (C3): direct-mode dispatch for
+                # prep_concepts. Direct mode has no daemon, so we call
+                # concept_store directly. Only 'get' and 'save' are
+                # supported here — curation actions (questions/answer/
+                # approve/archive) require the daemon's REST API.
+                result = await self._direct_concepts(
+                    action=args.get("action", "get"),
+                    query=args.get("query"),
+                    title=args.get("title"),
+                    content=args.get("content"),
+                    category=args.get("category", "technical"),
+                    anchors=args.get("anchors"),
+                    status=args.get("status"),
+                )
             else:
                 raise MethodNotFoundError(f"Unknown tool: {name}")
 
@@ -513,6 +532,92 @@ class DirectMCPServer:
     async def close(self):
         """Cleanup resources."""
         pass
+
+    async def _direct_concepts(
+        self,
+        action: str = "get",
+        query: Optional[str] = None,
+        title: Optional[str] = None,
+        content: Optional[str] = None,
+        category: str = "technical",
+        anchors: Optional[List[str]] = None,
+        status: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Direct-mode prep_concepts handler. Investigation 2026-08-22 (C3).
+
+        Only 'get' and 'save' are supported in direct mode — curation
+        actions (questions/answer/approve/archive) require the daemon's
+        REST API. Falls back gracefully if concept_store isn't available.
+        """
+        try:
+            from prep.services.concept_store import concept_store
+        except Exception as e:
+            return {
+                "error": f"concept_store not available: {e}",
+                "_to_markdown": f"Concepts not available: {e}",
+            }
+
+        project_id = self.project_id or "default"
+
+        if action == "save":
+            if not title or not content:
+                return {
+                    "error": "Both 'title' and 'content' are required for save",
+                    "_to_markdown": "Error: title and content required.",
+                }
+            cid = concept_store.save(
+                project_id=project_id,
+                title=title,
+                content=content,
+                category=category,
+                status="active",
+                anchors=anchors or [],
+                kind="concept",
+            )
+            msg = f'Concept saved: "{title}" (id={cid}).'
+            return {
+                "saved": True,
+                "id": cid,
+                "project_id": project_id,
+                "message": msg,
+                "_to_markdown": msg,
+            }
+
+        # action == "get"
+        if query:
+            concepts = concept_store.search(
+                project_id, query, limit=25, kind="concept",
+            )
+        else:
+            concepts = concept_store.list_concepts(
+                project_id, kind="concept",
+                include_archived=(status == "archived") if status else False,
+            )
+            if status:
+                concepts = [c for c in concepts if c.status == status]
+            concepts = concepts[:25]
+
+        md_lines = [f"## Concepts ({len(concepts)})\n"]
+        for c in concepts:
+            stale_tag = " [STALE]" if c.stale else ""
+            status_tag = f" ({c.status})" if c.status in ("seed", "triage_pending") else ""
+            anchors_str = f" → {', '.join(c.anchors[:3])}" if c.anchors else ""
+            md_lines.append(
+                f"- **{c.title}** [{c.category}]{status_tag}{stale_tag}{anchors_str}\n"
+                f"  {c.content[:200]}"
+            )
+        return {
+            "concepts": [
+                {
+                    "id": c.id, "title": c.title, "content": c.content[:200],
+                    "category": c.category, "status": c.status,
+                }
+                for c in concepts
+            ],
+            "count": len(concepts),
+            "project_id": project_id,
+            "_to_markdown": "\n".join(md_lines),
+        }
 
 
 async def run_stdio(server: DirectMCPServer) -> None:

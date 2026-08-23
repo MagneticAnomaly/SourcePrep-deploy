@@ -428,3 +428,134 @@ class TestTriagePendingPass4:
         assert report.activated >= 1, (
             "High-confidence triage_pending concept was not activated."
         )
+
+
+# ══════════════════════════════════════════════════════════════════
+# Issue C2/C3 — MCP prep_concepts lacks questions/answer/approve/archive
+#               + mcp_direct.py has no prep_concepts dispatch at all
+# ══════════════════════════════════════════════════════════════════
+
+
+class TestMCPConceptsActions:
+    """The REST API has endpoints for questions/answer/approve/archive,
+    but the MCP tool only exposes 'get' and 'save'. mcp_direct.py doesn't
+    dispatch prep_concepts at all."""
+
+    def test_mcp_tools_schema_includes_new_actions(self):
+        """The prep_concepts tool schema must list the new actions."""
+        from prep.mcp_tools import TOOLS
+        concepts_tool = next(
+            (t for t in TOOLS if t["name"] == "prep_concepts"), None,
+        )
+        assert concepts_tool is not None
+        actions = concepts_tool["inputSchema"]["properties"]["action"]
+        enum = actions.get("enum", [])
+        for required_action in ("get", "save", "questions", "answer",
+                                "approve", "archive"):
+            assert required_action in enum, (
+                f"prep_concepts action enum missing '{required_action}'"
+            )
+
+    def test_mcp_tools_schema_includes_tradeoff_category(self):
+        """The category enum in the schema must include 'tradeoff'."""
+        from prep.mcp_tools import TOOLS
+        concepts_tool = next(
+            (t for t in TOOLS if t["name"] == "prep_concepts"), None,
+        )
+        cats = concepts_tool["inputSchema"]["properties"]["category"]["enum"]
+        assert "tradeoff" in cats
+
+    def test_mcp_direct_dispatches_prep_concepts(self):
+        """mcp_direct.py must dispatch 'prep_concepts' tool calls."""
+        from prep.mcp_direct import DirectMCPServer
+        src = __import__("inspect").getsource(DirectMCPServer.handle_tools_call)
+        assert "prep_concepts" in src, (
+            "mcp_direct.py handle_tools_call does not dispatch 'prep_concepts' "
+            "— direct-mode MCP clients can't access concepts at all."
+        )
+
+
+# ══════════════════════════════════════════════════════════════════
+# Issue A — workers never receive source code slices for anchor files
+# ══════════════════════════════════════════════════════════════════
+
+
+class TestSourceGroundingSlices:
+    """Generate and Validate workers demand grep-falsifiable assertions
+    about source files, but the grounding payload never includes the
+    actual source code. The LLM hallucinates assertions about files it
+    has never seen."""
+
+    def test_grounding_dataclass_has_source_slices_field(self):
+        """The Grounding dataclass must carry source code slices for
+        anchor files so workers can verify their assertions against
+        real code."""
+        from prep.core.concept_synthesizer import Grounding
+        g = Grounding(project_name="test")
+        assert hasattr(g, "source_slices"), (
+            "Grounding has no source_slices field — workers can't see "
+            "the source code they're asked to make assertions about."
+        )
+
+    def test_load_grounding_populates_source_slices(self, tmp_path: Path):
+        """load_grounding must populate source_slices with actual file
+        content for anchor files."""
+        from prep.core.concept_synthesizer import Grounding, load_grounding
+
+        # Create a fake project structure with a source file
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "auth.py").write_text(
+            "def login(user, password):\n"
+            "    return check_credentials(user, password)\n"
+        )
+
+        # Create a fake rationale row in concept_store so load_grounding
+        # picks up the anchor, then verify the source slice is populated.
+        from prep.services.concept_store import ConceptStore
+        db_path = tmp_path / "prep_concepts.db"
+        local_store = ConceptStore()
+        local_store.init(db_path)
+        try:
+            local_store.save(
+                "proj-1", "Auth rationale", "JWT auth pattern",
+                anchors=["src/auth.py"], kind="module_rationale",
+            )
+        finally:
+            local_store.close()
+
+        with patch(
+            "prep.services.concept_store.concept_store",
+            local_store,
+        ), patch(
+            "prep.core.project_registry.prep_data_dir",
+            return_value=tmp_path,
+        ):
+            local_store2 = ConceptStore()
+            local_store2.init(db_path)
+            try:
+                with patch(
+                    "prep.services.concept_store.concept_store",
+                    local_store2,
+                ):
+                    g = load_grounding(
+                        "proj-1", idx_dir=tmp_path,
+                        project_name="test",
+                        project_root=tmp_path,
+                    )
+            finally:
+                local_store2.close()
+
+        assert isinstance(g, Grounding)
+        assert hasattr(g, "source_slices")
+        slices = g.source_slices or {}
+        # The key may be relative or absolute — check both
+        auth_slice = slices.get("src/auth.py") or slices.get(
+            str(tmp_path / "src" / "auth.py"),
+        )
+        assert auth_slice is not None, (
+            "load_grounding did not populate a source slice for "
+            "src/auth.py even though it's an anchor file."
+        )
+        assert "def login" in auth_slice, (
+            "Source slice doesn't contain the actual file content."
+        )

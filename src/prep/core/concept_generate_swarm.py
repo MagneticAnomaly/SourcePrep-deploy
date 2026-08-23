@@ -227,8 +227,11 @@ def synthesize_concepts_swarm(
                     return report
 
     # Load shared grounding + planning-doc grounding.
+    # Investigation 2026-08-22 (A): pass project_root so load_grounding
+    # can populate source_slices for anchor files.
     grounding = load_grounding(
         project_id, idx_dir=idx_dir, project_name=project_name,
+        project_root=project_root,
     )
     docs = load_or_build_docs_grounding(
         project_id, idx_dir=idx_dir, project_root=project_root,

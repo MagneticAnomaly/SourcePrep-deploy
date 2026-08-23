@@ -395,8 +395,13 @@ _CORE_TOOLS = [
             "properties": {
                 "action": {
                     "type": "string",
-                    "description": "Operation: 'get' or 'save'. Default: 'get'.",
-                    "enum": ["get", "save"],
+                    "description": (
+                        "Operation: 'get' (list/search), 'save' (create/update), "
+                        "'questions' (list clarifying questions), 'answer' (answer "
+                        "a question, creates a concept), 'approve' (promote seed → "
+                        "active), 'archive' (archive a concept). Default: 'get'."
+            ),
+                    "enum": ["get", "save", "questions", "answer", "approve", "archive"],
                     "default": "get",
                 },
                 "query": {
@@ -414,7 +419,7 @@ _CORE_TOOLS = [
                 "category": {
                     "type": "string",
                     "description": "Concept category.",
-                    "enum": ["architecture", "domain", "product", "epistemic", "process", "brand", "security", "technical", "pattern", "constraint", "decision"],
+                    "enum": ["architecture", "domain", "product", "epistemic", "process", "brand", "security", "technical", "pattern", "constraint", "decision", "tradeoff"],
                     "default": "technical",
                 },
                 "assertion": {
@@ -463,6 +468,25 @@ _CORE_TOOLS = [
                         "(the project's full Knowledge Sources). Pass a scope id like "
                         "'marketing' or 'data-cleaning' to limit results to that file "
                         "subset. Unknown scopes silently fall back to global."
+                    ),
+                },
+                "concept_id": {
+                    "type": "string",
+                    "description": (
+                        "(approve/archive) ID of the concept to approve or archive."
+                    ),
+                },
+                "question_id": {
+                    "type": "string",
+                    "description": (
+                        "(answer) ID of the clarifying question to answer."
+                    ),
+                },
+                "answer": {
+                    "type": "string",
+                    "description": (
+                        "(answer) The answer text. Answering a question creates "
+                        "a concept from the question + answer."
                     ),
                 },
                 "project_id": _PROJECT_ID_PROP,
