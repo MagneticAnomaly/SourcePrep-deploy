@@ -2509,6 +2509,17 @@ class PipelineOrchestrator:
 
         stage_str = run.stages[run.current_stage_index]
         stage = StageId(stage_str)
+
+        # Per-stage disable gate (scrutiny M1, 2026-08-24): project config
+        # `disabled_stages` turns a stage off entirely. Checked BEFORE the
+        # scheduler acquisition below so disabled stages never consume a
+        # compute slot. The skip handler writes a real provenance manifest
+        # so detect_resume_point flows past the stage instead of pinning
+        # the group at it on every invocation (see T-S1.0 verdict).
+        if stage.value in self._disabled_stage_ids(run.project_id):
+            self._skip_stage_disabled_by_config(run, stage, pfl)
+            return
+
         build_type = STAGE_BUILD_TYPE[stage]
         queue_type = STAGE_QUEUE_TYPE.get(stage, QueueType.LLM)
 
@@ -4180,6 +4191,124 @@ class PipelineOrchestrator:
             return None
 
     # ── Phase 70B: Freshness Check + Write Guard ─────────────────
+
+    # Stages that keep the trace graph / indexes alive. Profile matrices and
+    # the design doc's "never gated" rule both exclude these — disabling one
+    # would corrupt downstream stages, so config entries are ignored with a
+    # warning instead of being honored.
+    _NON_DISABLEABLE_STAGES = frozenset({
+        "structural", "validation", "knowledge", "deep_knowledge",
+    })
+
+    @staticmethod
+    def _disabled_stage_ids(project_id: str) -> set[str]:
+        """Validated `disabled_stages` list from project config.
+
+        Unknown stage names and non-disableable core stages are dropped with
+        a warning. Absent/invalid config → empty set (byte-identical
+        behavior for every existing project).
+        """
+        try:
+            from prep.services.project_helpers import require_project
+
+            project = require_project(project_id)
+        except Exception:
+            return set()
+        pcfg = getattr(project, "config", None) or {}
+        if not isinstance(pcfg, dict):
+            return set()
+        raw = pcfg.get("disabled_stages")
+        if not isinstance(raw, list) or not raw:
+            return set()
+        valid = {s.value for s in StageId}
+        out: set[str] = set()
+        warned: set[str] = set()
+        for entry in raw:
+            name = str(entry)
+            if name not in valid:
+                if name not in warned:
+                    logger.warning(
+                        "disabled_stages: ignoring unknown stage %r for %s",
+                        name, project_id,
+                    )
+                    warned.add(name)
+                continue
+            if name in PipelineOrchestrator._NON_DISABLEABLE_STAGES:
+                if name not in warned:
+                    logger.warning(
+                        "disabled_stages: %r is a core graph/embed stage and "
+                        "cannot be disabled via config — ignoring for %s",
+                        name, project_id,
+                    )
+                    warned.add(name)
+                continue
+            out.add(name)
+        return out
+
+    def _skip_stage_disabled_by_config(
+        self,
+        run: PipelineGroupStateMachine,
+        stage: StageId,
+        pfl: Any = None,
+    ) -> None:
+        """Skip a stage disabled via project config `disabled_stages`.
+
+        Mirrors the freshness-skip bookkeeping (stage_results marker +
+        persisted run-metadata skip + index advance) and additionally writes
+        a REAL provenance manifest tagged ``status=disabled_by_config``:
+
+        - ``detect_resume_point`` treats a stage as complete iff
+          ``provenance_exists`` — without the manifest, a permanently
+          disabled stage would pin its group's resume point at itself and
+          re-run every enabled stage after it on each group invocation.
+        - Selfheal sees ``already_complete``; the freshness check sees
+          provenance and never fires (the stage never dispatches anyway).
+        - The manifest must NOT carry ``restored: true`` — that shape is a
+          selfheal stub, treated as incomplete during rebuilds
+          (resume.py:204-233). The manifest is (re)written on every skip,
+          so its finished_at always postdates any active rebuild barrier.
+
+        NOT a failure, NOT pending. Called before scheduler acquisition, so
+        there is no slot to release.
+        """
+        reason = "disabled by project config (disabled_stages)"
+        logger.info(
+            "Stage %s skipped for %s: %s", stage.value, run.project_id, reason,
+        )
+        if pfl:
+            pfl.log(stage.value, f"SKIPPED (disabled by config): {reason}")
+        run.stage_results[stage.value] = "skipped"
+
+        try:
+            from datetime import datetime
+
+            from prep.core.project_registry import project_index_dir
+            from prep.services.project_helpers import require_project
+
+            project = require_project(run.project_id)
+            idx_dir = Path(project_index_dir(project))
+            store = ManifestStore(idx_dir)
+            now_iso = datetime.now(UTC).isoformat()
+            store.write_provenance(stage, {
+                "format_version": "2.0",
+                "stage_id": stage.value,
+                "run_id": run.journal_run_id,
+                "project_id": run.project_id,
+                "status": "disabled_by_config",
+                "disabled_by": "disabled_stages",
+                "started_at": now_iso,
+                "finished_at": now_iso,
+                "elapsed_seconds": 0.0,
+            })
+        except Exception:
+            logger.debug(
+                "disabled-stage manifest write failed for %s/%s (non-fatal)",
+                run.project_id, stage.value, exc_info=True,
+            )
+
+        self._update_run_metadata_for_skip(run, stage, reason)
+        run.current_stage_index += 1
+        self._advance_pipeline(run)
 
     def _should_skip_stage_freshness(
         self,
