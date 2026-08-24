@@ -1163,17 +1163,16 @@ class ClusterSynthesizer(Worker):
         return entries
 
     def load_edges(self) -> List[Dict[str, Any]]:
-        """Load all trace edges."""
-        edges: List[Dict[str, Any]] = []
-        for fname in ("trace_edges.jsonl", "trace_inferred_edges.jsonl"):
-            path = self.index_dir / fname
-            if path.exists():
-                with open(path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line:
-                            edges.append(json.loads(line))
-        return edges
+        """Load all trace edges.
+
+        Delegates to the shared build-time loader (trace_edges +
+        trace_inferred_edges + trace_external_edges). External edges are
+        load-bearing here: config files have no grammar-produced edges, so
+        without them every config file is a singleton cluster.
+        """
+        from prep.core.trace.loaders import load_all_build_edges
+
+        return load_all_build_edges(self.index_dir)
 
     def load_existing_modules(self) -> Dict[str, ModuleEntry]:
         """Load existing module entries.

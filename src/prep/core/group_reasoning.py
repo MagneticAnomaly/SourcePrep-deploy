@@ -384,17 +384,16 @@ class GroupReasoningEngine(Worker):
         return entries
 
     def load_edges(self) -> list[dict[str, Any]]:
-        """Load trace edges."""
-        edges: list[dict[str, Any]] = []
-        for fname in ("trace_edges.jsonl", "trace_inferred_edges.jsonl"):
-            path = self.index_dir / fname
-            if path.exists():
-                with open(path, encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line:
-                            edges.append(json.loads(line))
-        return edges
+        """Load trace edges.
+
+        Delegates to the shared build-time loader (trace_edges +
+        trace_inferred_edges + trace_external_edges). External edges must
+        reach build_dependency_groups or externally-linked files (e.g. host
+        config units) can never form reasoning groups (scrutiny C2/C3).
+        """
+        from prep.core.trace.loaders import load_all_build_edges
+
+        return load_all_build_edges(self.index_dir)
 
     def _build_member_details(
         self,
