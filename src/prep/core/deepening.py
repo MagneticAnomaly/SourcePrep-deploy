@@ -132,13 +132,24 @@ class DriftDetector(Worker):
             return set()  # defensive: no changeset → assume nothing stale
         stale: Set[str] = set()
         deleted_paths = cs.deleted
+        # T-S1.3: per-scope profile gate — deepening is disabled for both
+        # prose_docs and system_config profiles. A gate-rejected file is
+        # permanently out of scope for deepening, so it is never stale and
+        # never gets (re-)deepened. Deleted gate-rejected files still need
+        # their epistemic entries reset, so the gate only suppresses the
+        # modified/added path, not the orphan-reset path.
+        gate = getattr(self, "profile_gate", None)
         for node_id in augmentations.keys():
             file_path = node_id.replace("file:", "", 1) if node_id.startswith("file:") else ""
             if not file_path:
                 continue
+            if file_path in deleted_paths:
+                stale.add(node_id)
+                continue
+            if gate is not None and not gate.allows(file_path):
+                continue
             # should_process returns True for added | modified (files to re-enrich).
-            # Deleted files are orphaned — also mark stale so deepening resets them.
-            if self.should_process(file_path) or file_path in deleted_paths:
+            if self.should_process(file_path):
                 stale.add(node_id)
         return stale
 

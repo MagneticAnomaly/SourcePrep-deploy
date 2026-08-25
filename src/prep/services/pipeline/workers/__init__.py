@@ -226,7 +226,22 @@ def _compute_deepening_override_keys(
             if nid in file_node_ids
             and getattr(entry, "pass_number", 2) >= 3
         )
-        return len(file_nodes), in_scope_deepened
+        # T-S1.0 touchpoint 1 / T-S1.3: profile-aware denominator. Deepening
+        # is disabled for prose_docs and system_config profiles; counting
+        # gate-rejected files inflates _expected_total and pins the chip at
+        # success_rate < 1.0 forever (T-S1.0 verdict). The orchestrator clamps
+        # processed to expected, so prior orphan deepening entries on
+        # newly-gate-rejected files can't leak as >1.0. No gate → unchanged.
+        gate = getattr(enricher, "profile_gate", None)
+        if gate is not None:
+            expected = sum(
+                1
+                for n in file_nodes
+                if n.get("file_path") and gate.allows(n["file_path"])
+            )
+        else:
+            expected = len(file_nodes)
+        return expected, in_scope_deepened
     except (
         OSError,
         _json.JSONDecodeError,
@@ -507,6 +522,24 @@ class WorkerFactory:
             wrapped_worker.changeset = None  # type: ignore[attr-defined]
             base_worker.changeset = None  # type: ignore[attr-defined]
 
+        # T-S1.3: inject the per-stage ProfileGate parallel to .changeset. The
+        # 5 per-file stages (inferred_edges, catalogue, enrichment, deepening,
+        # deep_knowledge) consult gate.allows(fp) in their skip checks; the
+        # other stages carry it harmlessly (gate is never raised on their
+        # behalf). Defensive like changeset: a None gate → process everything
+        # (identical to pre-profile behavior). Set on both wrapped_worker and
+        # base_worker so inner closures reading `getattr(worker, ...)` resolve
+        # the same way they do for changeset (Phase 135 Task 0 pattern).
+        try:
+            from prep.core.pipeline_profiles import ProfileGate
+
+            _gate = ProfileGate(project_id, stage)
+            wrapped_worker.profile_gate = _gate  # type: ignore[attr-defined]
+            base_worker.profile_gate = _gate  # type: ignore[attr-defined]
+        except Exception:
+            wrapped_worker.profile_gate = None  # type: ignore[attr-defined]
+            base_worker.profile_gate = None  # type: ignore[attr-defined]
+
         return wrapped_worker
 
     # ── Helpers ─────────────────────────────────────────────────
@@ -749,6 +782,8 @@ class WorkerFactory:
             # Phase 135.5: inject the Changeset. `worker` is the inner-closure
             # self-reference (Phase 135 Task 0 set base_worker.changeset).
             analyzer.changeset = getattr(worker, "changeset", None)
+            # T-S1.3: profile gate (inferred_edges is a per-file stage).
+            analyzer.profile_gate = getattr(worker, "profile_gate", None)
             result = analyzer.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             logger.info(
                 "[%s/Edge Discovery] Complete — %d files analyzed, %d edges written",
@@ -814,6 +849,8 @@ class WorkerFactory:
             # Phase 134: pass the changeset from the worker closure
             # attribute to the augmenter so its should_process can consult it.
             augmenter.changeset = getattr(worker, "changeset", None)
+            # T-S1.3: profile gate (catalogue is a per-file stage).
+            augmenter.profile_gate = getattr(worker, "profile_gate", None)
             result = augmenter.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             paused = bool(getattr(result, "paused", False))
             logger.info(
@@ -958,6 +995,9 @@ class WorkerFactory:
             # base_worker.changeset; this name resolves there).
             idx.use_changeset = is_deep
             idx.changeset = getattr(worker, "changeset", None) if is_deep else None
+            # T-S1.3: profile gate — deep_knowledge (is_deep) is per-file gated;
+            # knowledge (stage 5) is never-gated, so it gets None here.
+            idx.profile_gate = getattr(worker, "profile_gate", None) if is_deep else None
             result = idx.build(progress_callback=cb_to_use)
             logger.info("[%s/%s] Complete", project.name, stage_label)
             return {
@@ -1032,6 +1072,8 @@ class WorkerFactory:
             # attribute so _needs_enrichment can check changeset.modified
             # instead of comparing manifest file hashes.
             enricher.changeset = getattr(worker, "changeset", None)
+            # T-S1.3: profile gate (enrichment is a per-file stage).
+            enricher.profile_gate = getattr(worker, "profile_gate", None)
             result = enricher.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             enriched = result.get("enriched_this_run", 0)
             failed = result.get("failed_this_run", 0)
@@ -1097,6 +1139,9 @@ class WorkerFactory:
             # Phase 135: inject the Changeset. `worker` is the inner-closure
             # self-reference; Task 0 set base_worker.changeset so this read works.
             engine.changeset = getattr(worker, "changeset", None)
+            # T-S1.3: profile gate (group_reasoning consults it via T-S1.6's
+            # input-set filter; harmless here otherwise).
+            engine.profile_gate = getattr(worker, "profile_gate", None)
             result = engine.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             analyzed = result.get("analyzed", 0)
             failed = result.get("failed", 0)
@@ -1151,6 +1196,8 @@ class WorkerFactory:
             # Phase 135: inject the Changeset. `worker` is the inner-closure
             # self-reference (Task 0 set base_worker.changeset).
             synthesizer.changeset = getattr(worker, "changeset", None)
+            # T-S1.3: profile gate (clustering is per-graph; carried harmlessly).
+            synthesizer.profile_gate = getattr(worker, "profile_gate", None)
             result = synthesizer.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             
             synthesized = result.get("synthesized", 0)
@@ -1209,6 +1256,9 @@ class WorkerFactory:
             # consults stage 1's canonical "what changed" signal instead of
             # computing its own fingerprint.
             atlas.changeset = getattr(worker, "changeset", None)
+            # T-S1.3: profile gate (atlas selects prompt variant by dominant
+            # profile in T-S2.3; not a per-file skip gate).
+            atlas.profile_gate = getattr(worker, "profile_gate", None)
 
             # Only regenerate if stale or missing
             if not atlas.is_stale() and atlas.exists():
@@ -1387,6 +1437,8 @@ class WorkerFactory:
             # Phase 134: inject changeset onto the enricher so _needs_enrichment
             # can check changeset.modified instead of comparing manifest hashes.
             enricher.changeset = getattr(worker, "changeset", None)
+            # T-S1.3: profile gate (deepening is a per-file stage).
+            enricher.profile_gate = getattr(worker, "profile_gate", None)
             _t0 = time.time()
             logger.info("[%s/Deepening] Starting deepening loop: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Deepening", progress_cb, project.name)
@@ -1401,6 +1453,8 @@ class WorkerFactory:
             # attribute onto the DriftDetector so it can compute stale_set from
             # changeset.modified | deleted instead of per-entry hash comparison.
             loop.drift_detector.changeset = getattr(worker, "changeset", None)
+            # T-S1.3: profile gate (deepening DriftDetector is per-file).
+            loop.drift_detector.profile_gate = getattr(worker, "profile_gate", None)
             result = loop.run(progress_callback=log_cb)
             logger.info(
                 "[Deepening] Complete — %d iterations, converged=%s",

@@ -37,6 +37,11 @@ class Worker:
     inject (cached path); non-workers get automatic on-disk resolution."""
 
     changeset: Optional[Changeset] = None
+    # T-S1.3: per-stage profile gate, injected by WorkerFactory parallel to
+    # `changeset`. None (default) ⇒ no profile gating ⇒ process everything,
+    # identical to pre-profile behavior. The 5 per-file stages consult
+    # `getattr(self, "profile_gate", None)` in their skip checks.
+    profile_gate: Optional["object"] = None
 
     def _resolve_changeset(self) -> Optional[Changeset]:
         """Return the explicitly-injected changeset, or lazy-load from

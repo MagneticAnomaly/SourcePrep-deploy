@@ -479,6 +479,19 @@ class KnowledgeIndex(Worker):
                     # doc's underlying file is unchanged, reuse the
                     # cached vector unconditionally — no hash compare.
                     file_path = self._file_path_for_doc_id(doc_id)
+                    # T-S1.3: per-scope profile gate (deep_knowledge). Built-in
+                    # profiles never disable deep_knowledge (absent from every
+                    # matrix → enabled), so this is inert for them — a custom
+                    # profile that disables deep_knowledge reuses the stage-5
+                    # vector instead of re-embedding with enriched data.
+                    gate = getattr(self, "profile_gate", None)
+                    if (
+                        gate is not None
+                        and file_path
+                        and not gate.allows(file_path)
+                    ):
+                        reused_vectors[i] = reuse_map[doc_id]  # plain vector
+                        continue
                     if file_path and not self.should_process(file_path):
                         reused_vectors[i] = reuse_map[doc_id]  # plain vector
                         continue

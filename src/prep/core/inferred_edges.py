@@ -229,6 +229,12 @@ class InferredEdgesAnalyzer(Worker):
             fp = node.get("file_path", "")
             if not self.should_process(fp):
                 continue
+            # T-S1.3: per-scope profile gate — inferred_edges is disabled for
+            # prose_docs and system_config profiles. Skip gate-rejected files
+            # so they neither cost an LLM call nor inflate the work total.
+            gate = getattr(self, "profile_gate", None)
+            if gate is not None and fp and not gate.allows(fp):
+                continue
             to_analyze.append(node)
 
         if max_items:

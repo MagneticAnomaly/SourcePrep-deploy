@@ -462,6 +462,14 @@ class EpistemicEnricher(HoldAwareMixin, Worker):
         file_path = node.get("file_path", "")
         if not file_path:
             return False  # symbol-level node, no file gate
+        # T-S1.3: per-scope profile gate — a file whose profile disables
+        # enrichment never needs (re-)enrichment. Returning False here (rather
+        # than letting it through to the enricher loop, which would skip it
+        # anyway) keeps it out of the pending set, so _expected_total is not
+        # inflated by gate-rejected files (T-S1.0 touchpoint 1).
+        gate = getattr(self, "profile_gate", None)
+        if gate is not None and not gate.allows(file_path):
+            return False
         cs = self._resolve_changeset()
         if cs is None:
             return False  # defensive — no changeset means unknown state, skip
@@ -1291,6 +1299,25 @@ class EpistemicEnricher(HoldAwareMixin, Worker):
         file_node_ids = {n["id"] for n in file_nodes}
         in_scope_enriched_count = sum(1 for nid in enriched if nid in file_node_ids)
 
+        # T-S1.0 touchpoint 1 / T-S1.3: _expected_total must be profile-aware.
+        # The project-wide file-node count overcounts when a profile disables
+        # enrichment for some files (e.g. prose_docs scopes) — the manifest
+        # would read success_rate < 1.0 forever even though nothing failed.
+        # Subtract gate-rejected files so the denominator matches the set the
+        # stage actually intends to process. No gate → unchanged behavior.
+        # When the gate rejects every file the count is 0; the orchestrator's
+        # _apply_worker_expected_total bails on <=0 and falls back to the
+        # JSONL-derived total (0 entries → 0), so no 0/0 division occurs.
+        gate = getattr(self, "profile_gate", None)
+        if gate is not None:
+            expected_total = sum(
+                1
+                for n in file_nodes
+                if n.get("file_path") and gate.allows(n["file_path"])
+            )
+        else:
+            expected_total = len(file_nodes)
+
         stats: Dict[str, Any] = {
             "total_file_nodes": len(file_nodes),
             "enriched_this_run": done,
@@ -1301,8 +1328,9 @@ class EpistemicEnricher(HoldAwareMixin, Worker):
             "paused": paused,
             # §9.3 #32 (PR-Q): canonical keys for orchestrator's
             # _write_stage_manifest_and_update_run quality-block override.
-            # `_expected_total` is the project-wide file node count (the
-            # denominator the chip should show).
+            # `_expected_total` is the file node count the stage intends to
+            # process (profile-aware per T-S1.3; project-wide when no profile
+            # gate is in effect — the pre-profile denominator).
             # `_processed_count` is the kind-and-scope-filtered count of
             # enriched entries — PR-Q-fixup-r1 narrows this from the
             # pre-fixup `len(enriched)` (cumulative with orphans) so the
@@ -1312,7 +1340,7 @@ class EpistemicEnricher(HoldAwareMixin, Worker):
             # and_update_run via the worker_result dict. Without them, the
             # manifest would default to jsonl-line-count semantics (FINDING
             # §2o §3a: 20/2072 → success_rate=1.0).
-            "_expected_total": len(file_nodes),
+            "_expected_total": expected_total,
             "_processed_count": in_scope_enriched_count,
         }
         if pause_info is not None:

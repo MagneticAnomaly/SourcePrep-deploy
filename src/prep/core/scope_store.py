@@ -9,6 +9,11 @@ _SCOPE_KEY_PREFIX = "scope"
 _MAX_SLUG_SUFFIX = 99
 _UNSET: object = object()
 
+# Built-in pipeline profile names selectable per scope. The stage matrices
+# themselves live in ``core/pipeline_profiles``; this set is the validation
+# surface so the store rejects unknown names at write time.
+KNOWN_PIPELINE_PROFILES = frozenset({"code", "prose_docs", "system_config"})
+
 
 @dataclass
 class ScopeRecord:
@@ -17,6 +22,10 @@ class ScopeRecord:
     paths: list[str] = field(default_factory=list)
     weights: dict[str, float] = field(default_factory=dict)  # reserved for v1.1
     assigned_to_role: str | None = None
+    # Named pipeline stage matrix (see ``core/pipeline_profiles``). ``code``
+    # is the default and matches today's behavior, so existing serialized
+    # records without the field keep all stages enabled.
+    pipeline_profile: str = "code"
     created_at: str = ""
     updated_at: str = ""
 
@@ -31,6 +40,7 @@ class ScopeRecord:
             paths=list(d.get("paths", [])),
             weights=dict(d.get("weights", {})),
             assigned_to_role=d.get("assigned_to_role"),
+            pipeline_profile=str(d.get("pipeline_profile") or "code"),
             created_at=str(d.get("created_at", "")),
             updated_at=str(d.get("updated_at", "")),
         )
@@ -76,10 +86,12 @@ class ScopeStore:
         display_name: str,
         paths: list[str] | None = None,  # type: ignore[valid-type]  # mypy: ScopeStore.list shadows builtin
         assigned_to_role: str | None = None,
+        pipeline_profile: str = "code",
     ) -> ScopeRecord:
         slug = _slugify(display_name)
         if slug == GLOBAL_SCOPE_ID:
             raise ValueError(f"scope id '{GLOBAL_SCOPE_ID}' is reserved")
+        _validate_pipeline_profile(pipeline_profile)
         scope_id = self._allocate_unique_id(project_id, slug)
         if assigned_to_role:
             self._check_role_unique(project_id, assigned_to_role, exclude_id=None)
@@ -89,6 +101,7 @@ class ScopeStore:
             display_name=display_name,
             paths=sorted(set(paths or [])),
             assigned_to_role=assigned_to_role,
+            pipeline_profile=pipeline_profile,
             created_at=now,
             updated_at=now,
         )
@@ -101,11 +114,16 @@ class ScopeStore:
         scope_id: str,
         display_name: str | None = None,
         assigned_to_role: Any = _UNSET,
+        pipeline_profile: Any = _UNSET,
     ) -> ScopeRecord:
         """Update a scope's metadata.
 
         Pass ``assigned_to_role=None`` to clear an existing assignment.
         Omit (default) to leave it unchanged. Pass a string to set/replace.
+
+        ``pipeline_profile`` follows the same convention: omit to leave
+        unchanged, pass a known profile name to set it. Unknown names raise
+        ``ValueError`` (surfaced as 409 SCOPE_INVALID by the API).
         """
         rec = self.get(project_id, scope_id)
         if rec is None:
@@ -114,6 +132,9 @@ class ScopeStore:
             if assigned_to_role:
                 self._check_role_unique(project_id, assigned_to_role, exclude_id=scope_id)
             rec.assigned_to_role = assigned_to_role or None
+        if pipeline_profile is not _UNSET and pipeline_profile != rec.pipeline_profile:
+            _validate_pipeline_profile(pipeline_profile)
+            rec.pipeline_profile = pipeline_profile
         if display_name is not None:
             rec.display_name = display_name
         rec.updated_at = _iso_now()
@@ -159,6 +180,21 @@ class ScopeStore:
                 continue
             if rec.assigned_to_role == role:
                 raise ValueError(f"role '{role}' already assigned to scope '{rec.id}'")
+
+
+def _validate_pipeline_profile(profile: Any) -> None:
+    """Raise ``ValueError`` for an unknown pipeline profile name.
+
+    ``None`` falls back to the ``code`` default rather than raising — callers
+    that treat the field as optional pass ``None`` from the API layer.
+    """
+    if profile is None:
+        return
+    if not isinstance(profile, str) or profile not in KNOWN_PIPELINE_PROFILES:
+        raise ValueError(
+            f"unknown pipeline_profile {profile!r}; "
+            f"expected one of {sorted(KNOWN_PIPELINE_PROFILES)}"
+        )
 
 
 def _slugify(name: str) -> str:

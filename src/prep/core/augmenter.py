@@ -487,6 +487,12 @@ class TraceAugmenter(HoldAwareMixin, Worker):
         if not file_path:
             # Symbol-level node without a file_path; nothing to gate on.
             return True  # already in existing, no change signal → skip
+        # T-S1.3: per-scope profile gate — catalogue disabled for this file's
+        # profile means the file is permanently out of scope for this stage.
+        # First-check so a rejected file never counts as "needs processing".
+        gate = getattr(self, "profile_gate", None)
+        if gate is not None and not gate.allows(file_path):
+            return True
         return not self.should_process(file_path)
 
     def _needs_augmentation(

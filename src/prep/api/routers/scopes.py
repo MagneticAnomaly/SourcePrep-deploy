@@ -44,11 +44,13 @@ class CreateScopeRequest(BaseModel):
     display_name: str
     paths: list[str] | None = None
     assigned_to_role: str | None = None
+    pipeline_profile: str | None = None
 
 
 class UpdateScopeRequest(BaseModel):
     display_name: str | None = None
     assigned_to_role: str | None = None
+    pipeline_profile: str | None = None
 
 
 class PathsRequest(BaseModel):
@@ -90,6 +92,7 @@ def _synthesize_global(project_id: str) -> dict[str, Any]:
         "paths": paths,
         "weights": {},
         "assigned_to_role": None,
+        "pipeline_profile": "code",
         "created_at": "",
         "updated_at": "",
     }
@@ -101,6 +104,7 @@ def _summary(rec_dict: dict[str, Any]) -> dict[str, Any]:
         "display_name": rec_dict["display_name"],
         "path_count": len(rec_dict.get("paths", [])),
         "assigned_to_role": rec_dict.get("assigned_to_role"),
+        "pipeline_profile": rec_dict.get("pipeline_profile", "code"),
     }
 
 
@@ -145,6 +149,7 @@ def create_scope(project_id: str, req: CreateScopeRequest) -> dict[str, Any]:
             display_name=req.display_name,
             paths=req.paths,
             assigned_to_role=req.assigned_to_role,
+            pipeline_profile=req.pipeline_profile or "code",
         )
     except ValueError as e:
         raise ApiException(status_code=409, code="SCOPE_INVALID", message=str(e)) from e
@@ -172,6 +177,8 @@ def update_scope(
         update_kwargs["display_name"] = req.display_name
     if "assigned_to_role" in req.model_fields_set:
         update_kwargs["assigned_to_role"] = req.assigned_to_role
+    if "pipeline_profile" in req.model_fields_set:
+        update_kwargs["pipeline_profile"] = req.pipeline_profile
     try:
         rec = scope_store.update(project_id, scope_id, **update_kwargs)
     except KeyError as e:

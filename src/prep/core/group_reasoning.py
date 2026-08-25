@@ -901,6 +901,28 @@ class GroupReasoningEngine(Worker):
             logger.info("No epistemic entries found, skipping group reasoning")
             return {"total_groups": 0, "analyzed": 0, "skipped": 0, "failed": 0}
 
+        # T-S1.6: filter the epistemic input set by the per-scope profile
+        # gate for group_reasoning. A scope whose profile disables
+        # group_reasoning (e.g. prose_docs) must never contribute files to a
+        # reasoning group, even if markdown edges link two docs into a
+        # cluster. For Halbert this is nearly automatic (sparse doc edges +
+        # min_group_size=2 drop them anyway), but the mechanism exists for the
+        # general case. No gate → unchanged input.
+        gate = getattr(self, "profile_gate", None)
+        if gate is not None:
+            filtered = {}
+            for nid, entry in epistemic.items():
+                fp = nid[len("file:"):] if nid.startswith("file:") else ""
+                if fp and not gate.allows(fp):
+                    continue
+                filtered[nid] = entry
+            if len(filtered) != len(epistemic):
+                logger.info(
+                    "Group reasoning: profile gate dropped %d/%d epistemic entries",
+                    len(epistemic) - len(filtered), len(epistemic),
+                )
+            epistemic = filtered
+
         # Build groups from dependency graph
         groups = build_dependency_groups(epistemic, edges)
         logger.info(
