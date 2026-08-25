@@ -159,19 +159,30 @@ F2_SITES: list[tuple[object, int]] = [
     # Earlier anchor 2026-06-01 after Phase 141 (compute_swarm_wall_budget,
     # IntegrityGuard) and the Lane-A atlas-swarm self._save(root_doc) fix.
     # cluster.py — ClusterSynthesizer.  Five direct dispatch sites.
-    (cluster_mod, 1307),
-    (cluster_mod, 1450),
-    (cluster_mod, 1485),
-    (cluster_mod, 1523),
-    (cluster_mod, 1879),
+    # Re-anchored 2026-08-24: the committed T-S2.5 shared build-time edge
+    # loader (load_all_build_edges delegation) shifted these by -1 from the
+    # Phase-144 anchors; the pins had drifted and the contract guard was
+    # silently broken.
+    (cluster_mod, 1306),
+    (cluster_mod, 1449),
+    (cluster_mod, 1484),
+    (cluster_mod, 1522),
+    (cluster_mod, 1878),
     # atlas/generator.py — CodebaseAtlas.  Four direct dispatch sites.
-    (atlas_generator_mod, 257),
-    (atlas_generator_mod, 620),
-    (atlas_generator_mod, 769),
-    (atlas_generator_mod, 930),
+    # Re-anchored 2026-08-24 after T-S2.3 added the profile-keyed prompt
+    # selection helpers (_profile_gate/_dominant_profile/_root_prompt_for/
+    # _segment_prompt_for) before _generate_root_atlas, plus 4 prompt
+    # imports — shifting all four sites down. Re-anchored again after T-S2.4
+    # added _atlas_deep_dirs + threaded extra_deep_dirs to 4 call sites.
+    (atlas_generator_mod, 260),
+    (atlas_generator_mod, 736),
+    (atlas_generator_mod, 884),
+    (atlas_generator_mod, 1045),
     # group_reasoning.py — GroupReasoningEngine.  Two direct dispatch sites.
-    (group_reasoning_mod, 501),
-    (group_reasoning_mod, 832),
+    # Re-anchored 2026-08-24: T-S2.5's load_all_build_edges delegation in
+    # group_reasoning.load_edges shifted these by -1 from the prior anchors.
+    (group_reasoning_mod, 500),
+    (group_reasoning_mod, 831),
     # concept_seeder.py — module-level workers + a free helper.
     # Re-anchored on phase-136-part09 branch: Step 1's diagnostic helper
     # (_synthesis_diagnostic_fields) added ~70 LoC, and Step 2 Tasks 9-10

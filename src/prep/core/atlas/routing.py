@@ -11,7 +11,7 @@ import logging
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from .models import Segment, SegmentDescriptor
 
@@ -99,13 +99,15 @@ _WORKSPACE_MARKERS = {
 def compute_segments(
     index_dir: Path,
     project_root: Optional[Path] = None,
+    extra_deep_dirs: Optional[Iterable[str]] = None,
 ) -> List[Segment]:
     """Compute directory-based segments from indexed file paths.
 
     Strategy:
     1. Scan all file paths from trace_nodes.jsonl
     2. Detect workspace boundaries if project_root is available
-    3. Group by directory (adaptive depth: deeper under src/, packages/, etc.)
+    3. Group by directory (adaptive depth: deeper under src/, packages/,
+       etc., plus any project-config ``atlas_deep_dirs``)
     4. Merge tiny groups (<MIN_SEGMENT_FILES) into nearest sibling or parent
     5. Cap at MAX_SEGMENTS — merge smallest pairs if over budget
     6. Annotate each segment with its modules' domain tags
@@ -126,7 +128,7 @@ def compute_segments(
     if workspaces and len(workspaces) >= 2:
         dir_groups = workspaces
     else:
-        dir_groups = _group_by_directory(file_paths)
+        dir_groups = _group_by_directory(file_paths, extra_deep_dirs=extra_deep_dirs)
 
     # Step 4: Merge tiny groups
     dir_groups = _merge_tiny_groups(dir_groups, MIN_SEGMENT_FILES)
@@ -274,21 +276,32 @@ def _assign_files_to_dirs(
     return {k: v for k, v in groups.items() if v}
 
 
-def _group_by_directory(file_paths: List[str]) -> Dict[str, List[str]]:
+def _group_by_directory(
+    file_paths: List[str],
+    *,
+    extra_deep_dirs: Optional[Iterable[str]] = None,
+) -> Dict[str, List[str]]:
     """Group file paths by directory with adaptive depth.
 
-    Uses depth 2 under known deep directories (src/, packages/, etc.),
-    depth 1 otherwise.
+    Uses depth 2 under known deep directories (src/, packages/, etc.) and
+    any project-config ``atlas_deep_dirs`` (e.g. ``knowledge`` → per-platform
+    segments ``knowledge/linux``, ``knowledge/macos``), depth 1 otherwise.
     """
     groups: Dict[str, List[str]] = defaultdict(list)
+    # T-S2.4: union the built-in deep dirs with the project-config extras
+    # (case-insensitive). Default (no config) → byte-identical to before.
+    deep_dirs: Set[str] = set(_DEEP_DIRS)
+    if extra_deep_dirs:
+        deep_dirs |= {str(d).lower().strip("/") for d in extra_deep_dirs if d}
 
     for fp in file_paths:
         parts = fp.split("/")
         if len(parts) == 1:
             # Root-level file
             groups["_root"].append(fp)
-        elif parts[0].lower() in _DEEP_DIRS and len(parts) >= 3:
-            # Deep directory: use depth 2 (e.g. src/prep/, packages/ui/)
+        elif parts[0].lower() in deep_dirs and len(parts) >= 3:
+            # Deep directory: use depth 2 (e.g. src/prep/, packages/ui/,
+            # knowledge/linux/)
             key = f"{parts[0]}/{parts[1]}"
             groups[key].append(fp)
         else:

@@ -136,6 +136,87 @@ def build_batched_doc_prompt(items: List[Dict[str, Any]]) -> str:
     return "\n".join(parts)
 
 
+# ── Catalogue: Reference docs (prose_docs profile, T-S2.1) ────────
+
+BATCHED_REFDOC_SYSTEM = """You are a reference-documentation analyst. You classify reference docs
+(man pages, handbook chapters, guides, formula pages, FAQs) by the kind of
+reference they are and the questions they answer. You MUST respond with a JSON
+object containing a "results" array. Each element corresponds to one input
+document, in order. No markdown, no explanation outside the JSON."""
+
+
+def build_batched_refdoc_prompt(items: List[Dict[str, Any]]) -> str:
+    """Build a batched prompt for reference-doc classification (prose_docs).
+
+    Mirrors build_batched_doc_prompt but uses the reference-doc taxonomy
+    (man_page, handbook_chapter, guide, formula, faq, reference), drops
+    doc_status, and asks for SEE ALSO / cross-reference targets as
+    related_files. Items carry: file_path, section_names, cross_refs,
+    content_label, content.
+    """
+    parts = [
+        f"Analyze each of the following {len(items)} reference documents. "
+        f"For EACH document, produce one JSON object.\n"
+        f"Return a JSON object: {{\"results\": [{{...}}, {{...}}, ...]}}\n"
+    ]
+
+    for i, item in enumerate(items, 1):
+        parts.append(f"\n=== REFDOC {i}: {item.get('file_path', '?')} ===")
+        parts.append(f"Sections: {item.get('section_names', '')}")
+        parts.append(f"SEE ALSO / cross-refs: {item.get('cross_refs', '')}")
+        label = item.get("content_label", "Content excerpt")
+        parts.append(f"{label}:\n```\n{item.get('content', '')}\n```")
+
+    parts.append(
+        '\nFor each reference doc, respond with: '
+        '{"id": <doc_number>, "file": "<file_path>", '
+        '"summary": "1-2 sentence description of what this reference covers and which questions it answers", '
+        '"role": "documentation", "confidence": 0.85, '
+        '"doc_type": "<man_page|handbook_chapter|guide|formula|faq|reference>", '
+        '"related_files": ["see_also_target.1", "target.5"]}'
+    )
+    parts.append('\nJSON response:')
+    return "\n".join(parts)
+
+
+# ── Catalogue: System config (system_config profile, T-S2.1) ──────
+
+BATCHED_CONFIG_SYSTEM = """You are a system-configuration analyst. You classify config files by what they
+control and the service/daemon they configure, noting risk and blast radius. You
+MUST respond with a JSON object containing a "results" array. Each element
+corresponds to one input file, in order. No markdown, no explanation outside
+the JSON."""
+
+
+def build_batched_config_prompt(items: List[Dict[str, Any]]) -> str:
+    """Build a batched prompt for system-config classification.
+
+    Items carry: file_path, section_names, content_label, content.
+    """
+    parts = [
+        f"Analyze each of the following {len(items)} system configuration files. "
+        f"For EACH file, produce one JSON object.\n"
+        f"Return a JSON object: {{\"results\": [{{...}}, {{...}}, ...]}}\n"
+    ]
+
+    for i, item in enumerate(items, 1):
+        parts.append(f"\n=== CONFIG {i}: {item.get('file_path', '?')} ===")
+        parts.append(f"Sections / directive blocks: {item.get('section_names', '')}")
+        label = item.get("content_label", "First 120 lines")
+        parts.append(f"{label}:\n```\n{item.get('content', '')}\n```")
+
+    parts.append(
+        '\nFor each config file, respond with: '
+        '{"id": <file_number>, "file": "<file_path>", '
+        '"summary": "Configures <service>: what this file controls, the main directives it sets, '
+        'and a one-clause risk/sensitivity note (auth, mounts, network, secrets).", '
+        '"role": "config", "confidence": 0.85, '
+        '"related_files": ["sibling/config/path"]}'
+    )
+    parts.append('\nJSON response:')
+    return "\n".join(parts)
+
+
 # ── Catalogue: Narrative (Unstructured) ───────────────────────────
 
 BATCHED_NARRATIVE_SYSTEM = """You are a document summarizer. You produce brief, accurate summaries of documents.

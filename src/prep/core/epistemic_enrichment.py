@@ -147,7 +147,92 @@ tech_debt: each entry is an object with item/severity/context. Include both expl
 JSON response:"""
 
 
-# ── Topological ordering ─────────────────────────────────────────────
+# ── Profile-keyed epistemic prompts (T-S2.2) ────────────────────────
+#
+# prose_docs (reference corpus) and system_config (host config) get
+# reference/config-flavored epistemic prompts instead of the project-doc
+# EPISTEMIC_DOC_PROMPT. The REFDOC prompt ships dormant in v1 (prose_docs
+# enrichment is off in the matrix, T-S1.2) and activates when the matrix
+# entry flips. The CONFIG prompt is live immediately (system_config
+# enrichment on). code → EPISTEMIC_CODE_PROMPT / EPISTEMIC_DOC_PROMPT.
+
+EPISTEMIC_REFDOC_PROMPT = """Perform deep epistemic analysis of this reference document.
+
+File: {file_path}
+Sections: {section_names}
+
+Pass 1 summary: {pass1_summary}
+Pass 1 doc_type: {pass1_doc_type}
+
+SEE ALSO / cross-reference targets: {cross_refs}
+Commands / topics mentioned: {commands}
+
+Neighbor context (enriched docs this one cross-references):
+{neighbor_context}
+
+Content excerpt:
+```
+{content_excerpt}
+```
+
+Respond with this exact JSON format:
+{{"extended_summary": "2-4 sentence description of what this reference covers, which commands/topics it documents, and which platform it targets",
+"domain_tags": ["storage", "platform:linux", "auth", "package-mgmt"],
+"architecture_layer": "documentation",
+"subsystem": "topic-area-or-package-family",
+"doc_type": "man_page",
+"cross_references": [
+  {{"target": "see_also_target.1", "relationship": "references", "context": "what this cross-ref points to"}}
+],
+"staleness_risk": "low|medium|high",
+"epistemic_confidence": 0.85}}
+
+Where doc_type is one of: man_page, handbook_chapter, guide, formula, faq, reference
+domain_tags: 1-6 tags — include one platform tag (platform:linux / platform:macos /
+  platform:bsd / platform:common) and topic tags (storage, network, auth, package-mgmt,
+  shell, filesystem, …). Reference docs have no lifecycle status and no decision chains;
+  do not emit doc_status or decision_chains.
+
+JSON response:"""
+
+
+EPISTEMIC_CONFIG_PROMPT = """Perform deep epistemic analysis of this system configuration file.
+
+File: {file_path}
+Sections / directive blocks: {section_names}
+
+Pass 1 summary: {pass1_summary}
+Pass 1 role: {pass1_role}
+
+Neighbor context (sibling config files this one relates to):
+{neighbor_context}
+
+Content excerpt:
+```
+{content_excerpt}
+```
+
+Respond with this exact JSON format:
+{{"extended_summary": "2-4 sentence description of what this config controls, which service/daemon it configures, the resources it governs, effective-value notes, and security sensitivity",
+"domain_tags": ["auth", "config:network", "config:storage"],
+"architecture_layer": "configuration",
+"subsystem": "service-or-daemon-name",
+"cross_references": [
+  {{"target": "sibling/config/path", "relationship": "conflicts|overrides|includes|enables", "context": "how this file interacts with the sibling — directive conflict, drop-in override, include chain"}}
+],
+"tech_debt": [
+  {{"item": "security sensitivity or misconfiguration risk", "severity": "low|medium|high", "context": "the specific directive or value and its blast radius"}}
+],
+"staleness_risk": "low|medium|high",
+"epistemic_confidence": 0.85}}
+
+architecture_layer is "configuration".
+domain_tags: 1-6 tags — service family (auth, network, storage, …) plus what the
+  config governs (config:network, config:mounts, …). Config files have no doc_type or
+  decision_chains; do not emit them. Use tech_debt for security/sensitivity notes
+  (insecure defaults, broad permissions, secrets in plaintext) — empty list if none.
+
+JSON response:"""
 
 def topological_sort_files(
     file_nodes: List[Dict[str, Any]],
@@ -514,6 +599,16 @@ class EpistemicEnricher(HoldAwareMixin, Worker):
             node_id, edges, nodes_by_id, augmentations, epistemic_entries
         )
 
+        # T-S2.2: profile-keyed prompt selection. prose_docs → reference-doc
+        # epistemic prompt, system_config → config epistemic prompt, code (or
+        # no gate) → legacy is_markdown / code dispatch. REFDOC ships dormant
+        # in v1 (prose_docs enrichment off in the matrix); CONFIG is live.
+        profile = self._profile_for_file(file_path)
+        if profile == "prose_docs":
+            return self._enrich_refdoc(node, edges, nodes_by_id, aug, neighbor_context)
+        if profile == "system_config":
+            return self._enrich_config(node, edges, nodes_by_id, aug, neighbor_context)
+
         if is_markdown:
             return self._enrich_doc(node, edges, nodes_by_id, aug, neighbor_context)
         else:
@@ -573,6 +668,83 @@ class EpistemicEnricher(HoldAwareMixin, Worker):
         )
 
         return self._call_and_parse(node["id"], file_path, prompt, is_doc=True)
+
+    def _profile_for_file(self, file_path: str) -> str:
+        """Resolve the pipeline profile for *file_path* (T-S2.2). Uses the
+        injected ProfileGate; returns ``"code"`` when absent so non-worker
+        callers and unscoped projects keep the legacy doc/code split."""
+        gate = getattr(self, "profile_gate", None)
+        if gate is None:
+            return "code"
+        try:
+            return gate.profile_for_path(file_path)
+        except Exception:  # pragma: no cover - gate must never break enrichment
+            logger.debug("profile resolution failed for %s", file_path, exc_info=True)
+            return "code"
+
+    def _enrich_refdoc(
+        self,
+        node: Dict[str, Any],
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+        aug: Dict[str, Any],
+        neighbor_context: str,
+    ) -> Optional[EpistemicEntry]:
+        """Enrich a reference-doc file (prose_docs profile) with the REFDOC
+        epistemic prompt: topic domain tags, platform, command coverage; no
+        decision_chains or doc_status. (T-S2.2)"""
+        file_path = node.get("file_path", "")
+        content = self._get_file_excerpt(file_path, max_lines=3000)
+        if not content:
+            return None
+
+        section_names = self._get_section_names(node["id"], edges, nodes_by_id)
+        file_refs, link_targets = self._get_reference_paths(node["id"], edges, nodes_by_id)
+        # SEE ALSO / cross-refs: union of backtick-mentioned targets + links.
+        cross_refs = list(dict.fromkeys(file_refs + link_targets))
+
+        prompt = EPISTEMIC_REFDOC_PROMPT.format(
+            file_path=file_path,
+            section_names=", ".join(section_names[:20]) or "(none)",
+            pass1_summary=aug.get("summary", "(none)"),
+            pass1_doc_type=aug.get("doc_type", "unknown"),
+            cross_refs=", ".join(cross_refs[:15]) or "(none)",
+            commands=", ".join(file_refs[:15]) or "(none)",
+            neighbor_context=neighbor_context,
+            content_excerpt=content,
+        )
+        # is_doc=True records doc_type; the REFDOC prompt omits doc_status and
+        # decision_chains, so those stay None (no lifecycle for reference docs).
+        return self._call_and_parse(node["id"], file_path, prompt, is_doc=True)
+
+    def _enrich_config(
+        self,
+        node: Dict[str, Any],
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+        aug: Dict[str, Any],
+        neighbor_context: str,
+    ) -> Optional[EpistemicEntry]:
+        """Enrich a system-config file (system_config profile) with the
+        CONFIG epistemic prompt: controlled resources, conflicts with
+        siblings, effective-value notes, security sensitivity. (T-S2.2)"""
+        file_path = node.get("file_path", "")
+        content = self._get_file_excerpt(file_path, max_lines=150)
+        if not content:
+            return None
+
+        section_names = self._get_section_names(node["id"], edges, nodes_by_id)
+
+        prompt = EPISTEMIC_CONFIG_PROMPT.format(
+            file_path=file_path,
+            section_names=", ".join(section_names[:20]) or "(none)",
+            pass1_summary=aug.get("summary", "(none)"),
+            pass1_role=aug.get("role", "config"),
+            neighbor_context=neighbor_context,
+            content_excerpt=content,
+        )
+        # is_doc=False: config entries carry no doc_type/decision_chains.
+        return self._call_and_parse(node["id"], file_path, prompt, is_doc=False)
 
     def _call_and_parse(
         self,

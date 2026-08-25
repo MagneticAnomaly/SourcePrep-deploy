@@ -50,6 +50,14 @@ VALID_DOC_STATUSES = frozenset({
     "active", "completed", "shelved", "superseded", "draft", "stale",
 })
 
+# Reference-document types for the prose_docs profile (T-S2.1). Reference
+# docs have a kind, not a lifecycle status, so REFDOC entries set doc_type
+# and leave doc_status unset. `guide` and `reference` overlap VALID_DOC_TYPES
+# by design (a guide is a guide in either taxonomy).
+VALID_REFDOC_TYPES = frozenset({
+    "man_page", "handbook_chapter", "guide", "formula", "faq", "reference",
+})
+
 # Checkpoint interval: save augmentations every N items to avoid losing
 # progress on mid-run crashes (LLM parse errors, OOM, timeouts, etc.).
 _CHECKPOINT_INTERVAL_DEFAULT = 500
@@ -261,6 +269,69 @@ Respond with this exact JSON format:
 Where doc_type is one of: research, design_spec, plan, guide, reference, changelog, readme, todo, status, analysis, overview
 Where doc_status is one of: active, completed, shelved, superseded, draft, stale
 related_files: list up to 5 code files this doc most closely describes or references
+
+JSON response:"""
+
+
+# ── Profile-keyed catalogue prompts (T-S2.1) ────────────────────────
+#
+# prose_docs (reference corpus: man pages, handbook, formula pages, FAQs)
+# and system_config (host config tree) get role-specific prompts instead
+# of the project-doc DOC_ROLE_PROMPT above. The `code` profile keeps the
+# legacy is_markdown / FILE_ROLE dispatch unchanged.
+
+REFDOC_ROLE_SYSTEM = """You are a reference-documentation analyst. You classify reference docs
+(man pages, handbook chapters, guides, formula pages, FAQs) by the kind of
+reference they are and the questions they answer. You MUST respond with
+valid JSON only."""
+
+REFDOC_ROLE_PROMPT = """Analyze this reference document.
+
+File: {file_path}
+Sections: {section_names}
+SEE ALSO / cross-reference targets: {cross_refs}
+
+{content_label}:
+```
+{content}
+```
+
+Respond with this exact JSON format:
+{{"summary": "1-2 sentence description of what this reference covers and which questions it answers", "role": "documentation", "confidence": 0.85, "doc_type": "man_page", "related_files": ["target.1", "related.5"]}}
+
+Where doc_type is one of: man_page, handbook_chapter, guide, formula, faq, reference
+related_files: list up to 8 cross-referenced targets this doc points to — SEE ALSO
+entries, backtick-mentioned command/file names, or [text](path) link targets that
+resolve within the corpus. Prefer targets that exist as files under the project root.
+
+Write a SPECIFIC summary: Bad: "A manual page." Good: "sshd_config man page — every sshd directive with accepted values and defaults; answers 'what does PermitRootLogin accept?'"
+
+JSON response:"""
+
+
+CONFIG_ROLE_SYSTEM = """You are a system-configuration analyst. You classify config files by what
+they control and the service/daemon they configure, noting risk and blast
+radius. You MUST respond with valid JSON only."""
+
+CONFIG_ROLE_PROMPT = """Analyze this system configuration file.
+
+File: {file_path}
+Sections / directive blocks: {section_names}
+
+{content_label}:
+```
+{content}
+```
+
+Respond with this exact JSON format:
+{{"summary": "Configures <service>: what this file controls, the main directives it sets, and a one-clause risk/sensitivity note (auth, mounts, network, secrets).", "role": "config", "confidence": 0.85, "related_files": ["sibling/config/path"]}}
+
+Where role is "config".
+related_files: list up to 5 sibling/related config files this one interacts with
+(drop-in overrides, units it enables, includes it pulls in).
+
+Write a SPECIFIC summary naming the service and the blast radius: Bad: "A config file."
+Good: "Configures sshd: sets Port, PermitRootLogin=no, and password auth policy; risk: auth — changes affect remote login security for the host."
 
 JSON response:"""
 
@@ -902,6 +973,22 @@ class TraceAugmenter(HoldAwareMixin, Worker):
                     targets.append(target.get("file_path", e["target"]))
         return targets
 
+    def _profile_for_file(self, file_path: str) -> str:
+        """Resolve the pipeline profile for *file_path* (T-S2.1).
+
+        Uses the injected ProfileGate when present (worker path); returns
+        ``"code"`` otherwise so non-worker callers and projects without
+        profiled scopes keep the legacy is_markdown / code dispatch.
+        """
+        gate = getattr(self, "profile_gate", None)
+        if gate is None:
+            return "code"
+        try:
+            return gate.profile_for_path(file_path)
+        except Exception:  # pragma: no cover - gate must never break augmentation
+            logger.debug("profile resolution failed for %s", file_path, exc_info=True)
+            return "code"
+
     def augment_file(
         self,
         node: Dict[str, Any],
@@ -910,15 +997,25 @@ class TraceAugmenter(HoldAwareMixin, Worker):
     ) -> Optional[AugmentationEntry]:
         """Augment a file node with LLM role classification.
 
-        For markdown files: uses doc-specific prompt with strategic excerpts
-        (head + top-ranked sections by ref_count).
-        For code files: uses standard prompt with file head.
+        Profile-keyed (T-S2.1): prose_docs → reference-doc prompt,
+        system_config → config prompt, code (or no gate) → legacy
+        is_markdown / code dispatch (unchanged for unscoped projects).
         """
         file_path = node.get("file_path", "")
         if self._should_skip_file(file_path):
             # Skip build output files entirely
             logger.debug("Skipping build output file %s", file_path)
             return None
+
+        # T-S2.1: profile-keyed prompt selection. prose_docs → reference-doc
+        # prompt, system_config → config prompt, code (or no gate) → the
+        # legacy is_markdown / code split (unchanged for every existing
+        # project with no profiled scopes).
+        profile = self._profile_for_file(file_path)
+        if profile == "prose_docs":
+            return self._augment_refdoc_file(node, edges, nodes_by_id)
+        if profile == "system_config":
+            return self._augment_config_file(node, edges, nodes_by_id)
 
         is_markdown = node.get("language") == "markdown" or file_path.endswith((".md", ".markdown"))
 
@@ -1105,6 +1202,156 @@ class TraceAugmenter(HoldAwareMixin, Worker):
             doc_status=doc_status,
         )
 
+    def _augment_refdoc_file(
+        self,
+        node: Dict[str, Any],
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+    ) -> Optional[AugmentationEntry]:
+        """Augment a reference-doc file (prose_docs profile) with the
+        REFDOC prompt: doc_type ∈ {man_page, handbook_chapter, guide,
+        formula, faq, reference}, no doc_status, SEE ALSO → related_files.
+        (T-S2.1)"""
+        file_path = node.get("file_path", "")
+        node_id = node["id"]
+
+        section_nodes = self._get_section_nodes_for_file(node_id, edges, nodes_by_id)
+        section_names = [s.get("name", "") for s in section_nodes]
+        # SEE ALSO / cross-references: union of backtick-mentioned file
+        # refs and [text](path) link targets the Rust parser already emitted.
+        file_refs = self._get_reference_targets(node_id, edges, nodes_by_id)
+        link_targets = self._get_link_targets(node_id, edges, nodes_by_id)
+        cross_refs = list(dict.fromkeys(file_refs + link_targets))  # dedupe, keep order
+
+        if section_nodes:
+            content = self._get_strategic_excerpt(file_path, section_nodes)
+            content_label = f"Strategic excerpt ({node.get('metadata', {}).get('line_count', '?')} total lines)"
+        else:
+            content = self._get_file_head(file_path, max_lines=100)
+            content_label = "First 100 lines"
+
+        if not content:
+            logger.debug("Empty content for refdoc %s — skipping augmentation", file_path)
+            return None
+
+        prompt = REFDOC_ROLE_PROMPT.format(
+            file_path=file_path,
+            section_names=", ".join(section_names[:20]) or "(none)",
+            cross_refs=", ".join(cross_refs[:15]) or "(none)",
+            content_label=content_label,
+            content=content,
+        )
+
+        try:
+            text, tokens = self._llm_generate_with_retry(
+                prompt, system=REFDOC_ROLE_SYSTEM,
+                label=file_path,
+            )
+        except HoldPausedError:
+            raise
+        except Exception as e:
+            logger.warning("LLM call failed for refdoc %s after retries: %s", file_path, e)
+            return self._synthetic_entry(node, reason="llm_failure")
+
+        parsed = _parse_json_response(text)
+        if parsed is None:
+            logger.warning("Failed to parse LLM response for refdoc %s — raw: %.200s", file_path, text)
+            return self._synthetic_entry(node, reason="parse_failure")
+
+        confidence = _parse_confidence(parsed.get("confidence"), 0.5)
+
+        doc_type = parsed.get("doc_type")
+        if doc_type not in VALID_REFDOC_TYPES:
+            doc_type = None
+
+        related = parsed.get("related_files")
+        if isinstance(related, list):
+            related = [str(r) for r in related[:8]]
+        else:
+            related = None
+
+        summary = str(parsed.get("summary", "")).strip()[:500]
+        if not summary:
+            summary = f"Reference document at {file_path}"
+
+        return AugmentationEntry(
+            node_id=node["id"],
+            summary=summary,
+            role="documentation",
+            confidence=confidence,
+            augmented_at=datetime.now(timezone.utc).isoformat(),
+            model=self.llm.model,
+            related_files=related,
+            doc_type=doc_type,
+            # REFDOC entries have no lifecycle status — leave doc_status unset.
+        )
+
+    def _augment_config_file(
+        self,
+        node: Dict[str, Any],
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+    ) -> Optional[AugmentationEntry]:
+        """Augment a system-config file (system_config profile) with the
+        CONFIG prompt: what it controls, which service it configures, and a
+        risk/sensitivity note, folded into the summary. (T-S2.1)"""
+        file_path = node.get("file_path", "")
+        node_id = node["id"]
+
+        section_nodes = self._get_section_nodes_for_file(node_id, edges, nodes_by_id)
+        section_names = [s.get("name", "") for s in section_nodes]
+
+        content = self._get_file_head(file_path, max_lines=120)
+        content_label = "First 120 lines"
+        if not content:
+            logger.debug("Empty content for config %s — skipping augmentation", file_path)
+            return None
+
+        prompt = CONFIG_ROLE_PROMPT.format(
+            file_path=file_path,
+            section_names=", ".join(section_names[:20]) or "(none)",
+            content_label=content_label,
+            content=content,
+        )
+
+        try:
+            text, tokens = self._llm_generate_with_retry(
+                prompt, system=CONFIG_ROLE_SYSTEM,
+                label=file_path,
+            )
+        except HoldPausedError:
+            raise
+        except Exception as e:
+            logger.warning("LLM call failed for config %s after retries: %s", file_path, e)
+            return self._synthetic_entry(node, reason="llm_failure")
+
+        parsed = _parse_json_response(text)
+        if parsed is None:
+            logger.warning("Failed to parse LLM response for config %s — raw: %.200s", file_path, text)
+            return self._synthetic_entry(node, reason="parse_failure")
+
+        confidence = _parse_confidence(parsed.get("confidence"), 0.5)
+
+        related = parsed.get("related_files")
+        if isinstance(related, list):
+            related = [str(r) for r in related[:5]]
+        else:
+            related = None
+
+        summary = str(parsed.get("summary", "")).strip()[:500]
+        if not summary:
+            summary = f"System configuration file at {file_path}"
+
+        return AugmentationEntry(
+            node_id=node["id"],
+            summary=summary,
+            role="config",
+            confidence=confidence,
+            augmented_at=datetime.now(timezone.utc).isoformat(),
+            model=self.llm.model,
+            related_files=related,
+        )
+
     def _augment_symbols_batched(
         self,
         symbol_nodes: List[Dict[str, Any]],
@@ -1289,6 +1536,100 @@ class TraceAugmenter(HoldAwareMixin, Worker):
 
         return done
 
+    def _run_profile_doc_batches(
+        self,
+        doc_nodes: List[Dict[str, Any]],
+        *,
+        edges: List[Dict[str, Any]],
+        nodes_by_id: Dict[str, Dict[str, Any]],
+        augmented: Dict[str, "AugmentationEntry"],
+        result: "AugmentResult",
+        done: int,
+        total_work: int,
+        progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        cancel_token: Optional[Any] = None,
+        _concurrency: int = 1,
+        batch_size: int = 1,
+        prompt_builder: Any,
+        system_msg: str,
+        schema: Any,
+        stage_name: str,
+        build_item: Callable[[Dict[str, Any]], Dict[str, Any]],
+        make_entry: Callable[[Dict[str, Any], str, Dict[str, Any]], "AugmentationEntry"],
+    ) -> int:
+        """Generic batched-doc dispatcher for a profile-homogeneous doc group
+        (T-S2.1). Shared by the prose_docs (refdoc) and system_config (config)
+        catalogue paths; code-profile docs stay on the inline legacy
+        batched-doc block. Returns the updated ``done`` counter.
+        """
+        if not doc_nodes:
+            return done
+        batches: List[List[Dict[str, Any]]] = []
+        for batch_start in range(0, len(doc_nodes), batch_size):
+            batch = doc_nodes[batch_start:batch_start + batch_size]
+            batches.append([build_item(node) for node in batch])
+
+        def _call(items):
+            return self._process_with_exploratory_fallback(
+                initial_items=items,
+                prompt_builder_fn=prompt_builder,
+                system_msg=system_msg,
+                schema=schema,
+                result=result,
+                stage_name=stage_name,
+            )
+
+        def _iter():
+            if _concurrency <= 1 or len(batches) <= 1:
+                for batch_items in batches:
+                    try:
+                        yield batch_items, _call(batch_items)
+                    except HoldPausedError:
+                        raise
+                    except Exception as e:
+                        logger.warning("%s batch failed: %s", stage_name, e)
+                        yield batch_items, [None] * len(batch_items)
+            else:
+                with ThreadPoolExecutor(max_workers=min(_concurrency, len(batches))) as pool:
+                    future_to_items = {pool.submit(_call, items): items for items in batches}
+                    for future in as_completed(future_to_items):
+                        batch_items = future_to_items[future]
+                        try:
+                            yield batch_items, future.result()
+                        except HoldPausedError:
+                            raise
+                        except Exception as e:
+                            logger.warning("%s batch future failed: %s", stage_name, e)
+                            yield batch_items, [None] * len(batch_items)
+
+        logger.info(
+            "Batched %s augmentation: %d files, batch_size=%d",
+            stage_name, len(doc_nodes), batch_size,
+        )
+        for items, results_list in _iter():
+            for idx, item in enumerate(items):
+                node = item["_node"]
+                nid = item["_node_id"]
+                parsed = results_list[idx] if idx < len(results_list) else None
+                if parsed:
+                    augmented[nid] = make_entry(node, item["file_path"], parsed)
+                    result.augmented += 1
+                else:
+                    augmented[nid] = self._synthetic_entry(node, reason="batch_parse_failure")
+                    result.synthetic += 1
+                done += 1
+            if progress_callback:
+                progress_callback("augment_files", done, total_work)
+            logger.info(
+                "Batched %s augmentation: %d/%d done (batch of %d → %d parsed)",
+                stage_name, done, total_work, len(items), len(results_list),
+            )
+            if cancel_token and cancel_token.is_cancelled:
+                logger.info("%s batching paused/cancelled at %d/%d — flushing", stage_name, done, total_work)
+                self._write_augmentations(augmented)
+                cancel_token.raise_if_cancelled()
+        return done
+
     def _augment_files_batched(
         self,
         file_nodes: List[Dict[str, Any]],
@@ -1309,9 +1650,13 @@ class TraceAugmenter(HoldAwareMixin, Worker):
         from .batch_prompts import (
             BATCHED_FILE_SYSTEM,
             BATCHED_DOC_SYSTEM,
+            BATCHED_REFDOC_SYSTEM,
+            BATCHED_CONFIG_SYSTEM,
             BATCHED_NARRATIVE_SYSTEM,
             build_batched_file_prompt,
             build_batched_doc_prompt,
+            build_batched_refdoc_prompt,
+            build_batched_config_prompt,
             build_batched_narrative_prompt,
             get_structured_schema,
         )
@@ -1333,6 +1678,27 @@ class TraceAugmenter(HoldAwareMixin, Worker):
         code_files = classified.get(ContentClass.STRUCTURED_CODE, [])
         doc_files = classified.get(ContentClass.STRUCTURED_DOCS, [])
         narrative_files = classified.get(ContentClass.UNSTRUCTURED_NARRATIVE, [])
+
+        # T-S2.1: split structured docs by pipeline profile. The code-profile
+        # docs stay on the existing batched-doc path below (unchanged). The
+        # prose_docs (reference) and system_config groups get their own
+        # batched prompts and an EXPLICIT, content-aware batch size (not the
+        # generic catalogue_file//5 heuristic) so the prose corpus cost is
+        # controlled by design (M3 cost correction). Halbert's scopes are
+        # disjoint, so these groups are homogeneous in practice.
+        refdoc_files: List[Dict[str, Any]] = []
+        config_files: List[Dict[str, Any]] = []
+        if doc_files:
+            _code_docs: List[Dict[str, Any]] = []
+            for _n in doc_files:
+                _prof = self._profile_for_file(_n.get("file_path", ""))
+                if _prof == "prose_docs":
+                    refdoc_files.append(_n)
+                elif _prof == "system_config":
+                    config_files.append(_n)
+                else:
+                    _code_docs.append(_n)
+            doc_files = _code_docs
 
         # Process code files in batches (concurrent batch dispatch for cloud APIs)
         from .batch_profiles import get_batch_concurrency
@@ -1565,6 +1931,127 @@ class TraceAugmenter(HoldAwareMixin, Worker):
                 logger.info("Doc batching paused/cancelled at %d/%d — flushing", done, total_work)
                 self._write_augmentations(augmented)
                 cancel_token.raise_if_cancelled()
+
+        # T-S2.1: prose_docs (reference) and system_config (config) doc
+        # groups. These were split out of doc_files above; code-profile docs
+        # already ran through the legacy batched-doc block. Explicit,
+        # content-aware batch sizes (not the generic //5 heuristic) so the
+        # prose corpus cost is controlled by design (M3 cost correction).
+        if refdoc_files:
+            refdoc_batch_size = max(1, self._batch_profile.batch_size(BatchStage.EPISTEMIC_DOC))
+
+            def _build_refdoc_item(node: Dict[str, Any]) -> Dict[str, Any]:
+                fp = node.get("file_path", "")
+                nid = node["id"]
+                section_nodes = [
+                    nodes_by_id[e["target"]]
+                    for e in edges
+                    if e.get("source") == nid
+                    and e.get("kind") == "contains"
+                    and e.get("target", "") in nodes_by_id
+                    and nodes_by_id[e["target"]].get("kind") == "section"
+                ]
+                section_names = [s.get("name", "") for s in section_nodes]
+                content = self._get_strategic_excerpt(fp, section_nodes)
+                refs = ", ".join(
+                    e.get("target", "").replace("file:", "")
+                    for e in edges
+                    if e.get("source") == nid and e.get("kind") == "references"
+                )[:300]
+                links = ", ".join(
+                    e.get("target", "").replace("file:", "")
+                    for e in edges
+                    if e.get("source") == nid and e.get("kind") == "links_to"
+                )[:300]
+                cross_refs = ", ".join(p for p in (refs, links) if p) or "(none)"
+                return {
+                    "file_path": fp,
+                    "section_names": ", ".join(section_names[:20]) or "(none)",
+                    "cross_refs": cross_refs,
+                    "content_label": "Content excerpt",
+                    "content": content,
+                    "_node": node,
+                    "_node_id": nid,
+                }
+
+            def _make_refdoc_entry(node, fp, parsed):
+                doc_type = parsed.get("doc_type")
+                if doc_type not in VALID_REFDOC_TYPES:
+                    doc_type = None
+                related = parsed.get("related_files", [])
+                related = [str(r) for r in related[:8]] if isinstance(related, list) else None
+                return AugmentationEntry(
+                    node_id=node["id"],
+                    summary=str(parsed.get("summary", ""))[:500],
+                    role="documentation",
+                    confidence=_parse_confidence(parsed.get("confidence"), 0.7),
+                    augmented_at=datetime.now(timezone.utc).isoformat(),
+                    model=self.llm.model,
+                    related_files=related,
+                    doc_type=doc_type,
+                )
+
+            done = self._run_profile_doc_batches(
+                refdoc_files,
+                edges=edges, nodes_by_id=nodes_by_id, augmented=augmented,
+                result=result, done=done, total_work=total_work,
+                progress_callback=progress_callback, cancel_token=cancel_token,
+                _concurrency=_concurrency, batch_size=refdoc_batch_size,
+                prompt_builder=build_batched_refdoc_prompt,
+                system_msg=BATCHED_REFDOC_SYSTEM, schema=doc_schema,
+                stage_name="refdoc_file",
+                build_item=_build_refdoc_item, make_entry=_make_refdoc_entry,
+            )
+
+        if config_files:
+            config_batch_size = max(1, batch_size)  # host corpus is small; code batch size is fine
+
+            def _build_config_item(node: Dict[str, Any]) -> Dict[str, Any]:
+                fp = node.get("file_path", "")
+                nid = node["id"]
+                section_nodes = [
+                    nodes_by_id[e["target"]]
+                    for e in edges
+                    if e.get("source") == nid
+                    and e.get("kind") == "contains"
+                    and e.get("target", "") in nodes_by_id
+                    and nodes_by_id[e["target"]].get("kind") == "section"
+                ]
+                section_names = [s.get("name", "") for s in section_nodes]
+                content = self._get_file_head(fp, max_lines=120)
+                return {
+                    "file_path": fp,
+                    "section_names": ", ".join(section_names[:20]) or "(none)",
+                    "content_label": "First 120 lines",
+                    "content": content,
+                    "_node": node,
+                    "_node_id": nid,
+                }
+
+            def _make_config_entry(node, fp, parsed):
+                related = parsed.get("related_files", [])
+                related = [str(r) for r in related[:5]] if isinstance(related, list) else None
+                return AugmentationEntry(
+                    node_id=node["id"],
+                    summary=str(parsed.get("summary", ""))[:500],
+                    role="config",
+                    confidence=_parse_confidence(parsed.get("confidence"), 0.7),
+                    augmented_at=datetime.now(timezone.utc).isoformat(),
+                    model=self.llm.model,
+                    related_files=related,
+                )
+
+            done = self._run_profile_doc_batches(
+                config_files,
+                edges=edges, nodes_by_id=nodes_by_id, augmented=augmented,
+                result=result, done=done, total_work=total_work,
+                progress_callback=progress_callback, cancel_token=cancel_token,
+                _concurrency=_concurrency, batch_size=config_batch_size,
+                prompt_builder=build_batched_config_prompt,
+                system_msg=BATCHED_CONFIG_SYSTEM, schema=doc_schema,
+                stage_name="config_file",
+                build_item=_build_config_item, make_entry=_make_config_entry,
+            )
 
         # Phase 53: Process unstructured narrative files (simpler prompt, no batching)
         if narrative_files:

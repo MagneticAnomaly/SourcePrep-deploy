@@ -1,0 +1,15 @@
+#	$OpenBSD: sshd_config,v 1.0 2024/01/01 $
+
+# This is the sshd server system-wide configuration file.
+
+Port 22
+AddressFamily any
+ListenAddress 0.0.0.0
+
+PermitRootLogin no
+PasswordAuthentication yes
+PubkeyAuthentication yes
+
+AuthorizedKeysFile .ssh/authorized_keys
+
+Subsystem	sftp	/usr/libexec/sftp-server

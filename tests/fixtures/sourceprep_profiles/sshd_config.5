@@ -1,0 +1,31 @@
+SSHD_CONFIG(5)          File Formats Manual          SSHD_CONFIG(5)
+
+NAME
+     sshd_config — OpenSSH SSH daemon configuration file
+
+SYNOPSIS
+     /etc/ssh/sshd_config
+
+DESCRIPTION
+     sshd_config is the configuration file for the sshd daemon.  It
+     contains keyword-value pairs, one per line.  Lines starting with
+     '#' and blank lines are interpreted as comments.
+
+     The options understood by sshd include:
+
+     Port         Specifies the port number that sshd listens on.
+                  The default is 22.
+
+     PermitRootLogin
+                  Specifies whether root can log in.  The default is
+                  'prohibit-password'.
+
+     PasswordAuthentication
+                  Specifies whether password authentication is allowed.
+                  The default is 'yes'.
+
+FILES
+     /etc/ssh/sshd_config
+
+SEE ALSO
+     ssh(1), sshd(8), ssh_config(5)

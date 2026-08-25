@@ -38,10 +38,14 @@ from .models import AtlasDocument, Segment, SegmentDescriptor, SegmentDocument
 from .prompts import (
     ATLAS_PROMPT,
     ATLAS_SYSTEM,
+    CORPUS_ATLAS_PROMPT,
+    HOST_ATLAS_PROMPT,
     ROOT_ATLAS_PROMPT,
     ROOT_ATLAS_SYSTEM,
     SEGMENT_ATLAS_PROMPT,
     SEGMENT_ATLAS_SYSTEM,
+    SEGMENT_CORPUS_PROMPT,
+    SEGMENT_HOST_PROMPT,
 )
 from .routing import (
     MAX_ATLAS_CHARS,
@@ -368,7 +372,9 @@ class CodebaseAtlas(Worker):
         start = time.monotonic()
 
         # Discover segments
-        segments = compute_segments(self.index_dir, self.project_root)
+        segments = compute_segments(
+            self.index_dir, self.project_root, extra_deep_dirs=self._atlas_deep_dirs()
+        )
         if not segments or len(segments) < 2:
             logger.info("Too few segments (%d) — falling back to single atlas", len(segments))
             doc = self.generate(progress_callback=progress_callback)
@@ -547,6 +553,103 @@ class CodebaseAtlas(Worker):
 
         return root_doc, segment_docs
 
+    # ── Profile-keyed prompt selection (T-S2.3) ─────────────────────
+
+    def _profile_gate(self):
+        """Return a ProfileGate for this project, preferring the injected
+        worker gate and falling back to a throwaway ATLAS-stage gate."""
+        gate = getattr(self, "profile_gate", None)
+        if gate is not None:
+            return gate
+        if not self.project_id:
+            return None
+        try:
+            from prep.services.pipeline.stages import StageId
+            from prep.core.pipeline_profiles import ProfileGate
+
+            return ProfileGate(self.project_id, StageId.ATLAS)
+        except Exception:  # pragma: no cover - atlas must never break on profile resolution
+            return None
+
+    def _dominant_profile(self, file_paths: List[str]) -> str:
+        """Resolve the dominant pipeline profile over *file_paths* by scope
+        membership (T-S2.3). Returns ``"code"`` when no gate / no paths, so
+        unscoped projects keep the legacy prompts unchanged."""
+        gate = self._profile_gate()
+        if gate is None or not file_paths:
+            return "code"
+        from collections import Counter
+
+        counts: Counter = Counter()
+        # Cap the sample for large corpora — a dominant-profile read over
+        # 16K doc paths is the expensive part; 2K is a stable sample.
+        for fp in file_paths[:2000]:
+            try:
+                counts[gate.profile_for_path(fp)] += 1
+            except Exception:
+                counts["code"] += 1
+        if not counts:
+            return "code"
+        return counts.most_common(1)[0][0]
+
+    def _root_prompt_for(self, segments: List[Segment]) -> Tuple[str, bool]:
+        """Pick the root atlas prompt by project-wide dominant profile.
+
+        Returns ``(prompt_template, mixed_host)``. Mixed (prose_docs
+        dominant with a system_config host scope also present) → CORPUS
+        variant with ``mixed_host=True`` so the caller folds a host-
+        configuration note into the cross-cutting data (Halbert is
+        knowledge-dominant by volume).
+        """
+        all_paths: List[str] = []
+        for seg in segments:
+            all_paths.extend(seg.file_paths)
+        profiles_seen: set = set()
+        gate = self._profile_gate()
+        if gate is not None:
+            for fp in all_paths[:2000]:
+                try:
+                    profiles_seen.add(gate.profile_for_path(fp))
+                except Exception:
+                    pass
+        dominant = self._dominant_profile(all_paths)
+        if dominant == "system_config":
+            return HOST_ATLAS_PROMPT, False
+        if dominant == "prose_docs":
+            mixed_host = "system_config" in profiles_seen
+            return CORPUS_ATLAS_PROMPT, mixed_host
+        return ROOT_ATLAS_PROMPT, False
+
+    def _segment_prompt_for(self, segment: Segment) -> str:
+        """Pick the per-segment atlas prompt by the segment's dominant
+        profile (majority of its file paths by scope membership)."""
+        dominant = self._dominant_profile(segment.file_paths)
+        if dominant == "prose_docs":
+            return SEGMENT_CORPUS_PROMPT
+        if dominant == "system_config":
+            return SEGMENT_HOST_PROMPT
+        return SEGMENT_ATLAS_PROMPT
+
+    def _atlas_deep_dirs(self) -> Optional[List[str]]:
+        """Project-config ``atlas_deep_dirs`` (T-S2.4): extra top-level dirs
+        to segment at depth 2 (e.g. ``['knowledge']`` → ``knowledge/linux``,
+        ``knowledge/macos``). None when unset → compute_segments stays
+        byte-identical to before.
+        """
+        if not self.project_id:
+            return None
+        try:
+            from prep.services.project_helpers import require_project
+
+            proj = require_project(self.project_id)
+            cfg = proj.config if isinstance(proj.config, dict) else {}
+            dirs = cfg.get("atlas_deep_dirs")
+            if isinstance(dirs, list) and dirs:
+                return [str(d) for d in dirs if d]
+        except Exception:  # pragma: no cover - never break atlas on config read
+            logger.debug("atlas_deep_dirs read failed for %s", self.project_id, exc_info=True)
+        return None
+
     def _generate_root_atlas(
         self,
         segments: List[Segment],
@@ -596,8 +699,22 @@ class CodebaseAtlas(Worker):
 
         cross_cutting = "\n".join(cross_parts) if cross_parts else "(insufficient data)"
 
+        # T-S2.3: profile-keyed root prompt. Mixed (knowledge-dominant with
+        # a host config scope present) folds a host-configuration note into
+        # the cross-cutting data the CORPUS prompt receives.
+        root_prompt_tmpl, mixed_host = self._root_prompt_for(segments)
+        if mixed_host:
+            host_segments = [s for s in segments if self._dominant_profile(s.file_paths) == "system_config"]
+            if host_segments:
+                host_names = ", ".join(s.name for s in host_segments[:6])
+                cross_cutting = (
+                    cross_cutting + f"\nHost config segments present: {host_names}. "
+                    "Include a brief HOST CONFIG paragraph in the header noting the "
+                    "host's configured services/auth surfaces covered by those segments."
+                )
+
         system = ROOT_ATLAS_SYSTEM.format(target_chars=target_chars, max_chars=max_chars)
-        prompt = ROOT_ATLAS_PROMPT.format(
+        prompt = root_prompt_tmpl.format(
             segment_map=segment_map,
             graph_stats=stats_text,
             cross_cutting=cross_cutting,
@@ -740,7 +857,7 @@ class CodebaseAtlas(Worker):
         file_listing = "\n".join(file_lines) if file_lines else "(no files)"
 
         system = SEGMENT_ATLAS_SYSTEM.format(target_chars=target_chars, max_chars=max_chars)
-        prompt = SEGMENT_ATLAS_PROMPT.format(
+        prompt = self._segment_prompt_for(segment).format(
             segment_name=segment.name,
             segment_dir=segment.dir_path,
             segment_file_count=segment.file_count,
@@ -889,7 +1006,7 @@ class CodebaseAtlas(Worker):
         file_listing = "\n".join(file_lines) if file_lines else "(no files)"
 
         system = SEGMENT_ATLAS_SYSTEM.format(target_chars=target_chars, max_chars=max_chars)
-        prompt = SEGMENT_ATLAS_PROMPT.format(
+        prompt = self._segment_prompt_for(segment).format(
             segment_name=segment.name,
             segment_dir=segment.dir_path,
             segment_file_count=segment.file_count,
@@ -1299,7 +1416,9 @@ class CodebaseAtlas(Worker):
         """
         import numpy as np
 
-        segments = compute_segments(self.index_dir, self.project_root)
+        segments = compute_segments(
+            self.index_dir, self.project_root, extra_deep_dirs=self._atlas_deep_dirs()
+        )
         if not segments or len(segments) < 2:
             logger.info("Too few segments (%d) for routing", len(segments))
             return []
@@ -1631,6 +1750,7 @@ class CodebaseAtlas(Worker):
             segments = compute_segments(
                 self.index_dir,
                 project_root=Path(self.project_root) if self.project_root else None,
+                extra_deep_dirs=self._atlas_deep_dirs(),
             )
             return [s.id for s in segments]
         except Exception:
@@ -2137,7 +2257,9 @@ class CodebaseAtlas(Worker):
         else:
             # No modules yet -- use directory-based segment detection
             try:
-                segments = compute_segments(self.index_dir, self.project_root)
+                segments = compute_segments(
+                    self.index_dir, self.project_root, extra_deep_dirs=self._atlas_deep_dirs()
+                )
                 if segments:
                     seg_lines = []
                     for seg in segments[:10]:
